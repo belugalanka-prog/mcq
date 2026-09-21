@@ -13,88 +13,332 @@
   <div class="row" id="admin-header" style="margin-bottom:24px"></div>
   <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
 
-  <div class="grid" style="grid-template-columns:1fr 1.7fr">
-    <div class="card card-pad">
-      <div class="card-head"><h2>Create a paper</h2></div>
-      <form id="new-paper" style="display:flex;flex-direction:column;gap:12px">
-        <label><span class="field-label">Paper title</span><input class="field" name="title" required placeholder="2024 A/L Physics MCQ"></label>
-        <div class="grid g2">
-          <label><span class="field-label">Subject</span><select class="field" name="subject"><option value="physics">Physics</option><option value="chemistry">Chemistry</option></select></label>
-          <label><span class="field-label">Kind</span><select class="field" name="paper_type"><option value="past">Past paper</option><option value="topic">Topic paper</option><option value="model">Model paper</option><option value="teacher">Teacher paper</option></select></label>
-        </div>
-        <div class="grid g3">
-          <label><span class="field-label">Year</span><input class="field" type="number" name="year" value="2024"></label>
-          <label><span class="field-label">Questions</span><input class="field" type="number" name="total_questions" value="50"></label>
-          <label><span class="field-label">Minutes</span><input class="field" type="number" name="duration_minutes" value="60"></label>
-        </div>
-        <label><span class="field-label">Description</span><textarea class="field" name="description" rows="2" placeholder="Optional note shown on the paper cover"></textarea></label>
-        <button type="submit" class="pill pill-brand" style="justify-content:center">Create paper</button>
-        <p id="form-error" class="muted" style="font-size:13px;color:var(--bad)"></p>
-      </form>
+  <div class="grid" style="grid-template-columns:1fr 1.7fr;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <div class="card card-pad">
+        <div class="card-head"><h2>1 · Settings</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:14px">Used by both tools below. Set the group once (for example the sir's name) and every paper you add gets it.</p>
+        <form id="settings" style="display:flex;flex-direction:column;gap:12px">
+          <label><span class="field-label">Group (sir / series name)</span>
+            <input class="field" name="group_name" list="group-list" placeholder="e.g. Sunil Sir — leave blank for none"></label>
+          <datalist id="group-list"></datalist>
+          <div class="grid g2">
+            <label><span class="field-label">Subject</span><select class="field" name="subject"><option value="physics">Physics</option><option value="chemistry">Chemistry</option></select></label>
+            <label><span class="field-label">Kind</span><select class="field" name="paper_type"><option value="teacher">Teacher paper</option><option value="past">Past paper</option><option value="topic">Topic paper</option><option value="model">Model paper</option></select></label>
+          </div>
+          <div class="grid g3">
+            <label><span class="field-label">Year</span><input class="field" type="number" name="year" value="2024"></label>
+            <label><span class="field-label">Questions</span><input class="field" type="number" name="total_questions" value="50"></label>
+            <label><span class="field-label">Minutes</span><input class="field" type="number" name="duration_minutes" value="60"></label>
+          </div>
+          <label><span class="field-label">Description (optional)</span><textarea class="field" name="description" rows="2" placeholder="Shown on the paper cover"></textarea></label>
+        </form>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-head"><h2>2 · Create many papers at once</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">One title per line. A 4-digit year in the title is picked up automatically.</p>
+        <textarea id="titles" class="field" rows="6" placeholder="Paper 01&#10;Paper 02&#10;Paper 03&#10;Paper 04"></textarea>
+        <button id="create-btn" class="pill pill-brand" style="margin-top:12px;justify-content:center;width:100%">Create papers</button>
+        <p id="create-msg" class="muted" style="margin-top:10px;font-size:13px"></p>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-head"><h2>3 · Upload whole folders</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">Creates the papers <b>and</b> uploads every question image in one go. Arrange your folders like this, then choose the top folder:</p>
+        <pre class="num" style="font-size:12px;background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:12px;overflow-x:auto;line-height:1.5">All papers/
+  Sunil Sir/          ← group
+    Paper 01/         ← paper
+      001.png … 050.png
+    Paper 02/
+  Nimal Sir/
+    Paper 01/</pre>
+        <p class="muted" style="font-size:12px;margin:8px 0 12px">No sir folders? Use <code>All papers/Paper 01/001.png</code> and the group from Settings is used. Papers with the same name in the same group are added to, not duplicated, and existing answer keys are kept.</p>
+        <input type="file" id="folder-input" webkitdirectory directory multiple hidden>
+        <button id="folder-btn" class="pill pill-soft" style="justify-content:center;width:100%">Choose folder…</button>
+        <div id="plan" style="margin-top:14px"></div>
+      </div>
     </div>
 
     <div class="card">
-      <div class="card-pad" style="padding-bottom:0"><div class="card-head"><h2>All papers</h2></div></div>
+      <div class="card-pad" style="padding-bottom:0">
+        <div class="card-head"><h2>All papers</h2><span class="muted num" id="count" style="font-size:13px"></span></div>
+        <div class="row" style="margin-bottom:12px">
+          <select id="f-group" class="field" style="width:auto;flex:1;min-width:150px"></select>
+          <input id="f-search" class="field" placeholder="Search title…" style="flex:1;min-width:150px">
+        </div>
+        <div class="row" style="padding:10px 0;border-top:1px solid var(--hairline)">
+          <label class="row" style="gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="sel-all"> <span id="sel-label">Select all</span></label>
+          <span style="flex:1"></span>
+          <button class="pill pill-soft" id="b-publish" disabled>Publish</button>
+          <button class="pill pill-ghost" id="b-unpublish" disabled>Unpublish</button>
+          <input id="b-group" list="group-list" class="field" placeholder="Move to group…" style="width:170px;height:40px">
+          <button class="pill pill-ghost" id="b-setgroup" disabled>Apply</button>
+          <button class="pill pill-ghost" id="b-delete" disabled style="color:var(--bad)">Delete</button>
+        </div>
+        <p id="bulk-msg" class="muted" style="font-size:13px;margin-bottom:8px"></p>
+      </div>
       <div id="list"></div>
     </div>
   </div>
 </div>
+
 <script type="module">
 import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc } from "../../js/format.js";
+import { IMG_RE, numberFromName, uploadQuestionImages, saveQuestionRows } from "../../js/upload.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
 mountAdminShell("Papers");
 
-async function loadPapers() {
-  const { data: papers } = await supabase.from("papers").select("*, questions(count)").order("created_at",{ascending:false});
-  document.getElementById("list").innerHTML = papers?.length ? papers.map(p => {
-    const entered = p.questions?.[0]?.count ?? 0;
-    const pct = Math.min(100, (entered / p.total_questions) * 100);
-    return `<div class="row" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px">
-        <a href="questions.html?paper=${p.id}" style="font-size:14px;font-weight:500">${esc(p.title)}</a>
-        <p class="num muted" style="margin-top:2px;font-size:12px">${p.subject} · ${p.paper_type} · ${entered}/${p.total_questions} questions in</p>
-      </div>
-      <div class="bar" style="width:96px"><span style="width:${pct}%"></span></div>
-      <a href="questions.html?paper=${p.id}" class="pill pill-ghost">Questions</a>
-      <button class="pill ${p.is_published?"pill-soft":"pill-brand"}" data-publish="${p.id}" data-state="${p.is_published}">${p.is_published?"Published":"Publish"}</button>
-    </div>`;
-  }).join("") : `<p class="card-pad muted" style="font-size:14px">No papers yet. Create one on the left, then upload its question images.</p>`;
+const $ = (id) => document.getElementById(id);
+const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
+const natural = (a, b) => (a ?? "").localeCompare(b ?? "", undefined, { numeric: true, sensitivity: "base" });
+const yearFromTitle = (t) => { const m = t.match(/\b(19|20)\d{2}\b/); return m ? Number(m[0]) : null; };
 
-  document.querySelectorAll("[data-publish]").forEach(btn => btn.addEventListener("click", async () => {
-    const id = btn.dataset.publish;
-    const publish = btn.dataset.state !== "true";
-    if (publish) {
-      const { count } = await supabase.from("questions").select("*",{count:"exact",head:true}).eq("paper_id", id);
-      const { data: paper } = await supabase.from("papers").select("total_questions").eq("id", id).single();
-      if ((count ?? 0) < paper.total_questions) {
-        alert(`Only ${count ?? 0} of ${paper.total_questions} questions are in. Add the rest before publishing.`);
-        return;
-      }
-    }
-    await supabase.from("papers").update({ is_published: publish }).eq("id", id);
-    loadPapers();
-  }));
+let papers = [];
+const selected = new Set();
+
+function settings() {
+  const f = new FormData($("settings"));
+  return {
+    group_name: (f.get("group_name") || "").trim() || null,
+    subject: f.get("subject"),
+    paper_type: f.get("paper_type"),
+    year: Number(f.get("year")) || null,
+    total_questions: Number(f.get("total_questions")) || 50,
+    duration_minutes: Number(f.get("duration_minutes")) || 60,
+    description: (f.get("description") || "").trim() || null,
+  };
 }
-loadPapers();
+$("settings").addEventListener("submit", e => e.preventDefault());
 
-document.getElementById("new-paper").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const { error } = await supabase.from("papers").insert({
-    title: fd.get("title"), subject: fd.get("subject"), year: Number(fd.get("year")) || null,
-    paper_type: fd.get("paper_type"), description: fd.get("description") || null,
-    duration_minutes: Number(fd.get("duration_minutes")) || 60,
-    total_questions: Number(fd.get("total_questions")) || 50,
-    created_by: session.user.id,
-  });
-  document.getElementById("form-error").textContent = error?.message ?? "";
-  if (!error) { e.target.reset(); loadPapers(); }
+/* ---------- list ---------- */
+async function loadPapers() {
+  const { data } = await supabase.from("papers").select("*, questions(count)").order("created_at", { ascending: false });
+  papers = data ?? [];
+  const groups = [...new Set(papers.map(p => p.group_name).filter(Boolean))].sort(natural);
+  $("group-list").innerHTML = groups.map(g => `<option value="${escAttr(g)}">`).join("");
+  const cur = $("f-group").value;
+  $("f-group").innerHTML = `<option value="">All groups</option><option value="__none">No group</option>` +
+    groups.map(g => `<option value="${escAttr(g)}">${esc(g)}</option>`).join("");
+  $("f-group").value = [...$("f-group").options].some(o => o.value === cur) ? cur : "";
+  for (const id of [...selected]) if (!papers.some(p => p.id === id)) selected.delete(id);
+  render();
+}
+
+function visible() {
+  const g = $("f-group").value, q = $("f-search").value.trim().toLowerCase();
+  return papers.filter(p =>
+    (g === "" || (g === "__none" ? !p.group_name : p.group_name === g)) &&
+    (!q || p.title.toLowerCase().includes(q) || (p.group_name ?? "").toLowerCase().includes(q)));
+}
+
+function render() {
+  const list = visible();
+  $("count").textContent = `${list.length} of ${papers.length}`;
+  const byGroup = new Map();
+  list.forEach(p => { const k = p.group_name ?? ""; if (!byGroup.has(k)) byGroup.set(k, []); byGroup.get(k).push(p); });
+  const keys = [...byGroup.keys()].sort((a, b) => a === "" ? 1 : b === "" ? -1 : natural(a, b));
+
+  $("list").innerHTML = list.length ? keys.map(k => {
+    const items = byGroup.get(k).sort((a, b) => natural(a.title, b.title));
+    const allSel = items.every(p => selected.has(p.id));
+    const head = `<div class="row" style="border-top:1px solid var(--hairline);background:var(--brand-soft);padding:10px 24px;gap:10px">
+      <input type="checkbox" data-grp="${escAttr(k)}" ${allSel ? "checked" : ""}>
+      <b style="font-size:13px;color:var(--brand)">${k ? esc(k) : "No group"}</b>
+      <span class="num muted" style="font-size:12px">${items.length} paper${items.length === 1 ? "" : "s"}</span></div>`;
+    return head + items.map(p => {
+      const entered = p.questions?.[0]?.count ?? 0;
+      const pct = Math.min(100, (entered / p.total_questions) * 100);
+      return `<div class="row" style="border-top:1px solid var(--hairline);padding:14px 24px;gap:12px;flex-wrap:wrap">
+        <input type="checkbox" data-sel="${p.id}" ${selected.has(p.id) ? "checked" : ""}>
+        <div style="flex:1;min-width:180px">
+          <a href="questions.html?paper=${p.id}" style="font-size:14px;font-weight:500">${esc(p.title)}</a>
+          <p class="num muted" style="margin-top:2px;font-size:12px">${p.subject} · ${p.paper_type} · ${entered}/${p.total_questions} questions in</p>
+        </div>
+        <div class="bar" style="width:80px"><span style="width:${pct}%"></span></div>
+        <a href="questions.html?paper=${p.id}" class="pill pill-ghost">Questions</a>
+        <button class="pill ${p.is_published ? "pill-soft" : "pill-brand"}" data-publish="${p.id}">${p.is_published ? "Published" : "Publish"}</button>
+      </div>`;
+    }).join("");
+  }).join("") : `<p class="card-pad muted" style="font-size:14px;border-top:1px solid var(--hairline)">No papers here yet. Use the tools on the left.</p>`;
+  syncToolbar();
+}
+
+function syncToolbar() {
+  const n = selected.size, list = visible();
+  ["b-publish", "b-unpublish", "b-setgroup", "b-delete"].forEach(id => $(id).disabled = n === 0);
+  $("sel-label").textContent = n ? `${n} selected` : "Select all";
+  $("sel-all").checked = list.length > 0 && list.every(p => selected.has(p.id));
+}
+
+$("list").addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset.sel) { t.checked ? selected.add(t.dataset.sel) : selected.delete(t.dataset.sel); }
+  else if (t.dataset.grp !== undefined) {
+    visible().filter(p => (p.group_name ?? "") === t.dataset.grp).forEach(p => t.checked ? selected.add(p.id) : selected.delete(p.id));
+  } else return;
+  render();
 });
+$("sel-all").addEventListener("change", e => { visible().forEach(p => e.target.checked ? selected.add(p.id) : selected.delete(p.id)); render(); });
+$("f-group").addEventListener("change", render);
+$("f-search").addEventListener("input", render);
+
+async function setPublished(ids, publish) {
+  let skipped = [];
+  if (publish) {
+    const ok = [];
+    ids.forEach(id => { const p = papers.find(x => x.id === id); (p.questions?.[0]?.count ?? 0) >= p.total_questions ? ok.push(id) : skipped.push(p.title); });
+    ids = ok;
+  }
+  if (ids.length) await supabase.from("papers").update({ is_published: publish }).in("id", ids);
+  await loadPapers();
+  $("bulk-msg").textContent = `${ids.length} ${publish ? "published" : "unpublished"}.` +
+    (skipped.length ? ` Skipped ${skipped.length} that don't have all their questions yet: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : "");
+}
+
+$("list").addEventListener("click", e => {
+  const b = e.target.closest("[data-publish]");
+  if (!b) return;
+  const p = papers.find(x => x.id === b.dataset.publish);
+  setPublished([p.id], !p.is_published);
+});
+$("b-publish").addEventListener("click", () => setPublished([...selected], true));
+$("b-unpublish").addEventListener("click", () => setPublished([...selected], false));
+$("b-setgroup").addEventListener("click", async () => {
+  const name = $("b-group").value.trim() || null;
+  if (!name && !confirm("Remove the group from the selected papers?")) return;
+  const ids = [...selected];
+  const { error } = await supabase.from("papers").update({ group_name: name }).in("id", ids);
+  $("bulk-msg").textContent = error ? error.message : `${ids.length} paper${ids.length === 1 ? "" : "s"} moved to ${name ?? "no group"}.`;
+  $("b-group").value = "";
+  await loadPapers();
+});
+$("b-delete").addEventListener("click", async () => {
+  const ids = [...selected];
+  if (!confirm(`Delete ${ids.length} paper${ids.length === 1 ? "" : "s"}, with all their questions and student attempts? This cannot be undone.`)) return;
+  const { error } = await supabase.from("papers").delete().in("id", ids);
+  $("bulk-msg").textContent = error ? error.message : `${ids.length} deleted.`;
+  selected.clear();
+  await loadPapers();
+});
+
+/* ---------- 2 · create many ---------- */
+$("create-btn").addEventListener("click", async () => {
+  const msg = $("create-msg");
+  const s = settings();
+  const titles = [...new Set($("titles").value.split("\n").map(t => t.trim()).filter(Boolean))];
+  if (!titles.length) { msg.textContent = "Type at least one title."; return; }
+  const exists = (t) => papers.some(p => p.title.toLowerCase() === t.toLowerCase() && p.subject === s.subject && (p.group_name ?? null) === s.group_name);
+  const fresh = titles.filter(t => !exists(t));
+  if (!fresh.length) { msg.textContent = "Those papers already exist in this group."; return; }
+  const { error } = await supabase.from("papers").insert(fresh.map(title => ({
+    title, subject: s.subject, paper_type: s.paper_type, group_name: s.group_name,
+    year: yearFromTitle(title) ?? s.year, total_questions: s.total_questions,
+    duration_minutes: s.duration_minutes, description: s.description, created_by: session.user.id,
+  })));
+  msg.textContent = error ? error.message : `Created ${fresh.length} paper${fresh.length === 1 ? "" : "s"}` +
+    (fresh.length < titles.length ? ` (${titles.length - fresh.length} already existed)` : "") + ". Open each one to upload its images, or use tool 3 to do it all at once.";
+  if (!error) { $("titles").value = ""; await loadPapers(); }
+});
+
+/* ---------- 3 · folder upload ---------- */
+let plan = [];
+$("folder-btn").addEventListener("click", () => $("folder-input").click());
+$("folder-input").addEventListener("change", (e) => { buildPlan(Array.from(e.target.files)); e.target.value = ""; });
+
+function buildPlan(files) {
+  const s = settings();
+  const map = new Map();
+  let ignored = 0;
+  for (const file of files) {
+    const parts = (file.webkitRelativePath || file.name).split("/");
+    if (!IMG_RE.test(file.name)) { ignored++; continue; }
+    const n = numberFromName(file.name);
+    if (n === null) { ignored++; continue; }
+    let group = s.group_name, title;
+    if (parts.length >= 4)      { group = parts[1]; title = parts[2]; }
+    else if (parts.length === 3) { title = parts[1]; }
+    else                         { title = parts[0]; }
+    const key = `${group ?? ""}\u0000${title}`;
+    if (!map.has(key)) map.set(key, { group, title, items: new Map() });
+    map.get(key).items.set(n, file);
+  }
+  plan = [...map.values()].sort((a, b) => natural(a.group, b.group) || natural(a.title, b.title)).map(e => {
+    const nums = [...e.items.keys()].sort((a, b) => a - b);
+    const max = nums[nums.length - 1];
+    const missing = []; for (let i = 1; i <= max; i++) if (!e.items.has(i)) missing.push(i);
+    const hay = `${e.title} ${e.group ?? ""}`;
+    const subject = /chem/i.test(hay) ? "chemistry" : /phys/i.test(hay) ? "physics" : s.subject;
+    const existing = papers.find(p => p.title.toLowerCase() === e.title.toLowerCase() && p.subject === subject && (p.group_name ?? null) === (e.group ?? null));
+    return { ...e, subject, max, missing, existing, count: nums.length };
+  });
+  renderPlan(ignored);
+}
+
+function renderPlan(ignored = 0) {
+  const el = $("plan");
+  if (!plan.length) { el.innerHTML = `<p class="muted" style="font-size:13px;color:var(--bad)">No numbered images found. Files need a number in the name, like 001.png.</p>`; return; }
+  el.innerHTML = `
+    <div style="max-height:260px;overflow:auto;border:1px solid var(--hairline);border-radius:12px">
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr class="muted" style="text-align:left"><th style="padding:8px">Group</th><th>Paper</th><th>Images</th><th></th></tr>
+        ${plan.map(p => `<tr style="border-top:1px solid var(--hairline)">
+          <td style="padding:8px">${p.group ? esc(p.group) : "—"}</td><td>${esc(p.title)}</td>
+          <td class="num">${p.count}</td>
+          <td style="color:${p.missing.length ? "var(--bad)" : "var(--muted)"}">${p.existing ? "adds to existing" : "new"}${p.missing.length ? ` · missing ${p.missing.slice(0, 4).join(", ")}${p.missing.length > 4 ? "…" : ""}` : ""}</td></tr>`).join("")}
+      </table>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:8px">${plan.length} paper${plan.length === 1 ? "" : "s"}, ${plan.reduce((a, p) => a + p.count, 0)} images.${ignored ? ` ${ignored} non-image or unnumbered file(s) ignored.` : ""} New papers stay unpublished.</p>
+    <button id="go-upload" class="pill pill-brand" style="margin-top:10px;justify-content:center;width:100%">Upload everything</button>
+    <div id="upload-status" style="margin-top:12px;font-size:13px"></div>`;
+  $("go-upload").addEventListener("click", runUpload);
+}
+
+async function runUpload() {
+  $("go-upload").disabled = true;
+  const s = settings();
+  const status = $("upload-status");
+  const lines = [];
+  const paint = (extra = "") => status.innerHTML = lines.join("") + extra;
+
+  for (const [i, p] of plan.entries()) {
+    const label = `${p.group ? p.group + " / " : ""}${p.title}`;
+    const live = (t) => paint(`<p class="num muted">(${i + 1}/${plan.length}) ${esc(label)} — ${t}</p>`);
+    try {
+      live("preparing");
+      let paper = p.existing;
+      if (!paper) {
+        const { data, error } = await supabase.from("papers").insert({
+          title: p.title, subject: p.subject, paper_type: s.paper_type, group_name: p.group ?? null,
+          year: yearFromTitle(p.title) ?? s.year, total_questions: p.max, duration_minutes: s.duration_minutes,
+          description: s.description, created_by: session.user.id,
+        }).select().single();
+        if (error) throw error;
+        paper = data;
+      } else if (paper.total_questions < p.max) {
+        await supabase.from("papers").update({ total_questions: p.max }).eq("id", paper.id);
+      }
+      const items = [...p.items.entries()].map(([n, file]) => ({ n, file }));
+      const { rows, failed } = await uploadQuestionImages(paper, items, (d, t) => live(`uploading ${d}/${t}`));
+      const { added, replaced } = rows.length ? await saveQuestionRows(paper, rows) : { added: 0, replaced: 0 };
+      lines.push(`<p>✓ <a href="questions.html?paper=${paper.id}" style="color:var(--brand)">${esc(label)}</a> <span class="muted num">— ${added} new${replaced ? `, ${replaced} replaced` : ""}${failed.length ? `, <span style="color:var(--bad)">${failed.length} failed</span>` : ""}</span></p>`);
+    } catch (e) {
+      lines.push(`<p style="color:var(--bad)">✗ ${esc(label)} — ${esc(e.message ?? "failed")}</p>`);
+    }
+    paint();
+  }
+  paint(`<p style="margin-top:10px"><b>Done.</b> New questions default to answer "A" — open each paper and paste its answer key before publishing.</p>`);
+  plan = [];
+  await loadPapers();
+}
+
+loadPapers();
 </script>
 </body>
 </html>
