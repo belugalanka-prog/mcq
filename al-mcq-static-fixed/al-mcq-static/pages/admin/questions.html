@@ -26,6 +26,13 @@
         <p id="upload-error" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>
       </div>
       <div class="card card-pad">
+        <div class="card-head"><h2>Paste answer key</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">Paste the whole key at once, in question order: <code>ABCDE…</code>, <code>A B C D…</code>, digits <code>1 to 5</code> (1=A), or numbered like <code>1-C 2-A 3-E</code>.</p>
+        <textarea id="key-input" class="field" rows="3" placeholder="CADBEACDBE…"></textarea>
+        <button id="key-apply" class="pill pill-brand" style="margin-top:10px;justify-content:center;width:100%">Apply key</button>
+        <p id="key-msg" class="muted" style="margin-top:10px;font-size:13px"></p>
+      </div>
+      <div class="card card-pad">
         <div class="card-head"><h2>Progress</h2></div>
         <div class="bar"><span id="progress-bar" style="width:0%"></span></div>
         <p class="num" id="progress-text" style="margin-top:12px;font-size:14px"></p>
@@ -45,6 +52,7 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { CHOICES, qs } from "../../js/format.js";
+import { pool, numberFromName, uploadQuestionImages, saveQuestionRows } from "../../js/upload.js";
 
 const paperId = qs("paper");
 const session = await requireStaff();
@@ -54,23 +62,6 @@ const { data: paper } = await supabase.from("papers").select("*").eq("id", paper
 if (!paper) { document.body.innerHTML = "<p style='padding:40px'>Paper not found.</p>"; throw new Error("not found"); }
 
 mountAdminShell(paper.title, `<a href="papers.html" class="pill pill-ghost">All papers</a>`);
-
-function numberFromName(name) {
-  const m = name.match(/(\d+)(?=\.[a-z0-9]+$)/i) || name.match(/^(\d+)/);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-async function toWebp(file) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("Could not convert image")), "image/webp", 0.82));
-}
 
 async function handleFiles(fileList) {
   const list = Array.from(fileList);
@@ -84,31 +75,20 @@ async function handleFiles(fileList) {
 
   usable.sort((a,b) => a.n - b.n);
   const progressEl = document.getElementById("upload-progress");
-  const rows = [];
+  const paint = (d, t) => progressEl.innerHTML = `<div class="bar"><span style="width:${(d/t)*100}%"></span></div><p class="num muted" style="margin-top:8px;font-size:13px">Uploading ${d} of ${t}</p>`;
+  paint(0, usable.length);
 
-  for (const [i, item] of usable.entries()) {
-    progressEl.innerHTML = `<div class="bar"><span style="width:${(i/usable.length)*100}%"></span></div><p class="num muted" style="margin-top:8px;font-size:13px">Uploading ${i} of ${usable.length}</p>`;
-    try {
-      const webp = await toWebp(item.file);
-      const path = `${paper.subject}/${paper.year ?? "misc"}/${paper.id}/q${String(item.n).padStart(3,"0")}.webp`;
-      const { error: upErr } = await supabase.storage.from("questions").upload(path, webp, { contentType: "image/webp", upsert: true });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("questions").getPublicUrl(path);
-      rows.push({ question_number: item.n, question_image_url: data.publicUrl });
-    } catch (e) {
-      errEl.textContent = `Stopped at ${item.file.name}: ${e.message ?? "upload failed"}`;
-      break;
-    }
-  }
+  const { rows, failed } = await uploadQuestionImages(paper, usable, paint);
   progressEl.innerHTML = "";
+  if (failed.length) errEl.textContent = `${failed.length} failed: ${failed.slice(0,2).join("; ")}${failed.length>2?"…":""}`;
 
   if (rows.length) {
-    const { error } = await supabase.from("questions").upsert(
-      rows.map(r => ({ ...r, paper_id: paper.id, correct_answer: "A" })),
-      { onConflict: "paper_id,question_number" }
-    );
-    if (error) errEl.textContent = error.message;
-    else await loadGrid();
+    try {
+      const { added, replaced } = await saveQuestionRows(paper, rows);
+      errEl.style.color = "var(--muted)";
+      if (!failed.length && !unnamed.length) errEl.textContent = `${added} added${replaced ? `, ${replaced} images replaced (answers kept)` : ""}.`;
+      await loadGrid();
+    } catch (e) { errEl.style.color = "var(--bad)"; errEl.textContent = e.message; }
   }
   document.getElementById("file-input").value = "";
 }
@@ -190,6 +170,35 @@ async function loadGrid() {
   });
 }
 loadGrid();
+
+function parseKey(text) {
+  const map = new Map();
+  const pairs = [...text.matchAll(/(\d{1,3})\s*[\.\)\:\-\u2013=]?\s*([A-Ea-e])(?![A-Za-z])/g)];
+  if (pairs.length) { pairs.forEach(m => map.set(Number(m[1]), m[2].toUpperCase())); return map; }
+  const letters = text.toUpperCase().replace(/[^A-E]/g, "");
+  if (letters) { [...letters].forEach((c, i) => map.set(i + 1, c)); return map; }
+  const digits = text.match(/[1-5]/g) ?? [];
+  digits.forEach((d, i) => map.set(i + 1, CHOICES[Number(d) - 1]));
+  return map;
+}
+
+document.getElementById("key-apply").addEventListener("click", async () => {
+  const msg = document.getElementById("key-msg");
+  const key = parseKey(document.getElementById("key-input").value);
+  if (!key.size) { msg.textContent = "Couldn't read any answers. Use letters A to E or digits 1 to 5."; return; }
+  const { data: qs2 } = await supabase.from("questions").select("id,question_number").eq("paper_id", paper.id);
+  const byNum = new Map((qs2 ?? []).map(q => [q.question_number, q.id]));
+  const todo = [...key.entries()].filter(([n]) => byNum.has(n));
+  const noImage = [...key.keys()].filter(n => !byNum.has(n)).length;
+  msg.textContent = `Saving ${todo.length}…`;
+  await pool(todo, 6, async ([n, letter]) => {
+    await supabase.from("questions").update({ correct_answer: letter }).eq("id", byNum.get(n));
+  });
+  msg.textContent = `Saved ${todo.length} answers.` +
+    (noImage ? ` ${noImage} answer(s) had no matching question image yet, so they were skipped.` : "") +
+    (byNum.size > key.size ? ` ${byNum.size - key.size} question(s) had no answer in the key and were left as they were.` : "");
+  await loadGrid();
+});
 </script>
 </body>
 </html>
