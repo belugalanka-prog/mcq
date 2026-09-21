@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advertising — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="card card-pad">
+    <div class="card-head"><h2>Where ads appear</h2></div>
+    <p class="muted" style="font-size:13px;margin-bottom:16px">There is deliberately no placement inside a running paper. Interrupting a timed exam costs you more in abandoned attempts than the impression is worth.</p>
+    <div class="grid g2" id="placements"></div>
+  </div>
+
+  <div class="card card-pad" style="margin-top:16px">
+    <div class="card-head"><h2>AdSense</h2></div>
+    <p class="muted" id="adsense-status" style="font-size:13px"></p>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-pad" style="padding-bottom:0"><div class="card-head"><h2>Ads you sold directly</h2></div></div>
+    <div id="house-list"></div>
+    <div class="card-pad" style="border-top:1px solid var(--hairline)">
+      <p style="font-size:14px;font-weight:500;margin-bottom:12px">Add one</p>
+      <form id="new-ad" style="display:flex;flex-direction:column;gap:10px">
+        <input class="field" name="title" placeholder="Advertiser name">
+        <input class="field" name="image_url" placeholder="Image URL (upload to the 'ads' bucket first)" required>
+        <input class="field" name="link_url" placeholder="https://advertiser-site.com">
+        <select class="field" name="placement">
+          <option value="DASHBOARD_PROMO">Dashboard</option>
+          <option value="PAPER_TOP">Paper cover</option>
+          <option value="RESULT_BOTTOM">Result page</option>
+          <option value="SIDEBAR">Subject browser</option>
+        </select>
+        <button class="pill pill-brand" style="justify-content:center">Add advertisement</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Advertising");
+
+const PLACEMENTS = [
+  ["DASHBOARD_PROMO","Dashboard, beside recent attempts"],
+  ["PAPER_TOP","Above the paper cover, before the paper starts"],
+  ["RESULT_BOTTOM","Under the results breakdown"],
+  ["SIDEBAR","Subject browsing pages"],
+];
+
+async function refresh() {
+  const { data: ads } = await supabase.from("advertisements").select("*").order("priority",{ascending:false});
+
+  document.getElementById("placements").innerHTML = PLACEMENTS.map(([key, where]) => {
+    const live = ads?.filter(a => a.placement === key && a.is_active).length ?? 0;
+    return `<div style="border-radius:16px;padding:16px;background:var(--brand-soft)">
+      <p class="num" style="font-size:13px;font-weight:600;color:var(--brand)">${key}</p>
+      <p class="muted" style="margin-top:4px;font-size:13px">${where}</p>
+      <p class="num" style="margin-top:8px;font-size:13px">${live} running</p>
+    </div>`;
+  }).join("");
+
+  document.getElementById("house-list").innerHTML = ads?.length ? ads.map(a => `
+    <div class="row" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:16px">
+      <img src="${a.image_url}" style="height:44px;width:80px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
+      <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.title||"Untitled")}</p>
+        <p class="num muted" style="font-size:12px">${a.placement} · ${a.impressions} views · ${a.clicks} clicks</p></div>
+      <button class="pill ${a.is_active?"pill-soft":"pill-ghost"}" data-toggle="${a.id}" data-state="${a.is_active}">${a.is_active?"Running":"Paused"}</button>
+    </div>`).join("") : `<p class="card-pad muted" style="font-size:14px">No advertisements yet. Add one below.</p>`;
+
+  document.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", async () => {
+    await supabase.from("advertisements").update({ is_active: btn.dataset.state !== "true" }).eq("id", btn.dataset.toggle);
+    refresh();
+  }));
+}
+refresh();
+
+document.getElementById("new-ad").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await supabase.from("advertisements").insert({
+    title: fd.get("title") || null, image_url: fd.get("image_url"),
+    link_url: fd.get("link_url") || null, placement: fd.get("placement"), is_active: true,
+  });
+  e.target.reset();
+  refresh();
+});
+
+// This page only shows serving status, not live revenue — the earnings API
+// needs an OAuth client secret that cannot safely live in browser JS.
+const client = window.APP_CONFIG.ADSENSE_CLIENT;
+document.getElementById("adsense-status").textContent = client
+  ? `Ads are serving under ${client}. To point a placement at a specific ad unit, set its slot ID in app_settings (see README).`
+  : "AdSense is not connected yet. Set NEXT... ADSENSE_CLIENT in config.js once your AdSense application is approved. There is no revenue dashboard in this version — check earnings at adsense.google.com.";
+</script>
+</body>
+</html>

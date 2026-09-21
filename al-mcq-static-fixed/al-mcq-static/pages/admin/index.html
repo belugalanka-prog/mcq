@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="grid g4" id="tiles"></div>
+
+  <div class="card card-pad" style="margin-top:16px">
+    <div class="card-head"><h2>Questions students are getting wrong</h2></div>
+    <p class="muted" style="font-size:13px;margin-bottom:16px">Ranked by how few students answer correctly, once at least five have tried. A very low score often means the concept needs reteaching — or that the answer key is wrong.</p>
+    <div id="hardest"></div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Overview", `<a href="papers.html" class="pill pill-deep">New paper</a>`);
+
+async function count(table, applyFilter) {
+  let q = supabase.from(table).select("*", { count: "exact", head: true });
+  if (applyFilter) q = applyFilter(q);
+  const { count } = await q;
+  return count ?? 0;
+}
+
+const [students, papers, questions, attempts] = await Promise.all([
+  count("profiles", q => q.eq("role","student")),
+  count("papers"),
+  count("questions"),
+  count("attempts", q => q.not("completed_at","is",null)),
+]);
+
+document.getElementById("tiles").innerHTML = [
+  ["Students", students], ["Papers", papers], ["Questions", questions], ["Papers sat", attempts],
+].map(([label, value]) => `<div class="card card-pad"><p class="num" style="font-size:30px;font-weight:600">${value.toLocaleString()}</p><p class="muted" style="margin-top:4px;font-size:13px">${label}</p></div>`).join("");
+
+const { data: hardest } = await supabase.from("question_difficulty")
+  .select("question_number,paper_title,topic,correct_pct,attempts")
+  .gte("attempts", 5).order("correct_pct",{ascending:true}).limit(8);
+
+document.getElementById("hardest").innerHTML = hardest?.length ? hardest.map(q => `
+  <div class="row" style="border-top:1px solid var(--hairline);padding:12px 0;gap:16px">
+    <span class="chip num">Q${q.question_number}</span>
+    <div style="flex:1"><p style="font-size:14px">${esc(q.paper_title)}</p><p class="muted" style="font-size:12px">${esc(q.topic||"No topic tagged")} · ${q.attempts} attempts</p></div>
+    <p class="num" style="font-size:15px;font-weight:600;color:${q.correct_pct<40?"var(--bad)":"var(--muted)"}">${q.correct_pct ?? 0}%</p>
+  </div>`).join("") : `<p class="muted" style="font-size:14px">Not enough attempts yet. This fills in once students start sitting papers.</p>`;
+</script>
+</body>
+</html>

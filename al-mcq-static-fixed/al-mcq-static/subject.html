@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papers — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <h1 id="title" style="font-size:32px"></h1>
+  <p class="muted" style="margin-top:8px;font-size:14px">Choose a paper. Exam mode runs the clock and holds the answers until you submit.</p>
+  <div class="row" id="type-tabs" style="margin-top:24px"></div>
+  <div class="grid g3" id="papers" style="margin-top:20px"></div>
+  <div id="ad-sidebar" style="margin-top:16px"></div>
+</div>
+
+<script type="module">
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { titleCase, esc, qs } from "./js/format.js";
+
+const subject = qs("subject", "physics");
+const type = qs("type", "past");
+
+mountRail();
+mountTopbar({ tabs: [
+  {href:`subject.html?subject=${subject}`, label: titleCase(subject)},
+  {href:"dashboard.html", label:"Dashboard"},
+  {href:`subject.html?subject=${subject==="physics"?"chemistry":"physics"}`, label: subject==="physics"?"Chemistry":"Physics"},
+]});
+mountAdSlot(document.getElementById("ad-sidebar"), "SIDEBAR", 180);
+
+document.getElementById("title").textContent = titleCase(subject);
+
+const TYPES = [["past","Past papers"],["topic","Topic papers"],["model","Model papers"],["teacher","Teacher papers"]];
+document.getElementById("type-tabs").innerHTML = TYPES.map(([k,l]) =>
+  `<a href="subject.html?subject=${subject}&type=${k}" class="pill ${k===type?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
+
+const { data: papers } = await supabase.from("papers")
+  .select("id,title,year,duration_minutes,total_questions,description")
+  .eq("subject", subject).eq("paper_type", type).eq("is_published", true)
+  .order("year", { ascending: false });
+
+document.getElementById("papers").innerHTML = papers?.length ? papers.map(p => `
+  <a href="paper.html?id=${p.id}" class="card card-pad">
+    ${p.year ? `<span class="chip num">${p.year}</span>` : ""}
+    <p style="margin-top:12px;font-size:16px;font-weight:500;line-height:1.3">${esc(p.title)}</p>
+    ${p.description ? `<p class="muted" style="margin-top:8px;font-size:13px">${esc(p.description)}</p>` : ""}
+    <p class="num muted" style="margin-top:16px;font-size:13px">${p.total_questions} questions · ${p.duration_minutes} min</p>
+  </a>`).join("") : `<div class="card card-pad" style="grid-column:1/-1"><p class="muted" style="font-size:14px">No ${TYPES.find(t=>t[0]===type)[1].toLowerCase()} published for ${titleCase(subject)} yet. Check another tab, or come back shortly.</p></div>`;
+</script>
+</body>
+</html>

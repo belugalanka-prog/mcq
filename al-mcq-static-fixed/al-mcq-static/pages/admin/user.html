@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+  <div class="grid g4" id="tiles"></div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <div class="card-pad" style="padding-bottom:0"><div class="card-head"><h2>Recent papers</h2></div></div>
+      <div id="attempts"></div>
+    </div>
+    <div class="card card-pad">
+      <div class="card-head"><h2>Weakest topics</h2></div>
+      <div id="weak"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { clock, esc, qs } from "../../js/format.js";
+
+const uid = qs("id");
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+
+const { data: profile } = await supabase.from("profiles").select("*").eq("id", uid).single();
+if (!profile) { document.body.innerHTML = "<p style='padding:40px'>Student not found.</p>"; throw new Error("not found"); }
+
+mountAdminShell(profile.full_name || "Student", `<a href="users.html" class="pill pill-ghost">All students</a>`);
+
+const [{ data: stats }, { data: attempts }, { data: topics }] = await Promise.all([
+  supabase.from("user_statistics").select("*").eq("user_id", uid).maybeSingle(),
+  supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title)")
+    .eq("user_id", uid).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(10),
+  supabase.from("topic_performance").select("*").eq("user_id", uid).order("accuracy"),
+]);
+
+document.getElementById("tiles").innerHTML = [
+  ["Papers finished", stats?.completed_papers ?? 0],
+  ["Accuracy", `${Math.round(stats?.accuracy ?? 0)}%`],
+  ["Points", stats?.total_points ?? 0],
+  ["Day streak", stats?.current_streak ?? 0],
+].map(([l,v]) => `<div class="card card-pad"><p class="num" style="font-size:26px;font-weight:600">${v}</p><p class="muted" style="margin-top:4px;font-size:13px">${l}</p></div>`).join("");
+
+document.getElementById("attempts").innerHTML = attempts?.length ? attempts.map(a => `
+  <div class="row between" style="border-top:1px solid var(--hairline);padding:14px 24px">
+    <div><p style="font-size:14px">${esc(a.papers?.title)}</p><p class="num muted" style="font-size:12px">${new Date(a.completed_at).toLocaleDateString()} · ${clock(a.time_taken_seconds||0)}</p></div>
+    <p class="num" style="font-size:15px;font-weight:600">${a.percentage}%</p>
+  </div>`).join("") : `<p class="card-pad muted" style="font-size:14px">This student has not finished a paper yet.</p>`;
+
+document.getElementById("weak").innerHTML = topics?.length ? topics.slice(0,5).map(t => `
+  <div style="margin-bottom:14px">
+    <div class="row between" style="margin-bottom:6px"><p style="font-size:14px">${esc(t.topic)} <span class="muted" style="font-size:12px">${t.subject}</span></p><p class="num muted" style="font-size:13px">${t.correct}/${t.answered}</p></div>
+    <div class="bar"><span style="width:${t.accuracy}%;background:${t.accuracy<50?"var(--warn)":"var(--brand)"}"></span></div>
+  </div>`).join("") : `<p class="muted" style="font-size:14px">No topic data yet. It builds up once tagged questions are answered.</p>`;
+</script>
+</body>
+</html>

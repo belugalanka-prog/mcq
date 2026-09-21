@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My results — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <h1 style="font-size:32px">My results</h1>
+  <div class="card" id="list" style="margin-top:20px"></div>
+</div>
+<script type="module">
+import { requireUser } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar } from "./js/shell.js";
+import { clock, esc } from "./js/format.js";
+
+const session = await requireUser();
+if (!session) throw new Error("redirecting");
+mountRail();
+mountTopbar({ tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"}] });
+
+const { data: attempts } = await supabase.from("attempts")
+  .select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
+  .eq("user_id", session.user.id).not("completed_at","is",null).order("completed_at",{ascending:false});
+
+document.getElementById("list").innerHTML = attempts?.length ? attempts.map(a => `
+  <a href="results.html?attempt=${a.id}" class="row between" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:16px">
+    <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.papers?.title)}</p>
+      <p class="num muted" style="margin-top:2px;font-size:12px">${new Date(a.completed_at).toLocaleDateString()} · ${clock(a.time_taken_seconds||0)}</p></div>
+    <div class="bar" style="width:100px"><span style="width:${a.percentage||0}%"></span></div>
+    <p class="num" style="font-size:15px;font-weight:600">${a.percentage}%</p>
+  </a>`).join("") : `<p class="card-pad muted" style="font-size:14px">You have not finished a paper yet. Pick one and your history starts here.</p>`;
+</script>
+</body>
+</html>

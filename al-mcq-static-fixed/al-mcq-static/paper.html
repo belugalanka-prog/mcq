@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <div id="ad-top" style="margin-bottom:16px"></div>
+
+  <div class="grid" style="grid-template-columns:1.6fr 1fr">
+    <div class="card card-pad">
+      <span class="chip" id="kind"></span>
+      <h1 id="title" style="margin-top:16px;font-size:30px;line-height:1.2"></h1>
+      <p class="muted" id="desc" style="margin-top:12px;font-size:14px;line-height:1.6"></p>
+      <h2 style="margin-top:32px;font-size:15px">Before you begin</h2>
+      <ul class="muted" style="margin-top:12px;font-size:14px;line-height:1.7;padding-left:18px">
+        <li>The clock starts as soon as you open question one and keeps running on the server, so closing the tab will not pause it.</li>
+        <li>Every selection saves immediately. If your connection drops, reopen the paper and carry on from where you stopped.</li>
+        <li>You can jump between questions freely and change any answer until you submit.</li>
+        <li>Marks and worked answers appear only after you submit.</li>
+      </ul>
+    </div>
+    <div class="card card-pad">
+      <div class="grid g2">
+        <div><p class="num" style="font-size:26px;font-weight:600" id="qcount"></p><p class="muted" style="font-size:13px">Questions</p></div>
+        <div><p class="num" style="font-size:26px;font-weight:600" id="mins"></p><p class="muted" style="font-size:13px">Minutes</p></div>
+      </div>
+      <div id="start-area" style="margin-top:24px"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getSession, signInWithGoogle } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { titleCase, esc, qs } from "./js/format.js";
+
+const paperId = qs("id");
+mountRail();
+
+const { data: paper } = await supabase.from("papers").select("*").eq("id", paperId).eq("is_published", true).single();
+if (!paper) { document.querySelector(".wrap").innerHTML = "<p>Paper not found.</p>"; throw new Error("not found"); }
+
+mountTopbar({ tabs: [{href:`subject.html?subject=${paper.subject}`,label:titleCase(paper.subject)},{href:"dashboard.html",label:"Dashboard"}] });
+mountAdSlot(document.getElementById("ad-top"), "PAPER_TOP");
+
+document.getElementById("kind").textContent = titleCase(paper.paper_type);
+document.getElementById("title").textContent = paper.title;
+document.getElementById("desc").textContent = paper.description || "";
+document.getElementById("qcount").textContent = paper.total_questions;
+document.getElementById("mins").textContent = paper.duration_minutes;
+
+const session = await getSession();
+const startArea = document.getElementById("start-area");
+
+if (!session) {
+  startArea.innerHTML = `<button id="signin" class="pill pill-brand" style="width:100%;justify-content:center">Continue with Google</button>
+    <p class="muted" style="margin-top:12px;font-size:13px">Sign in so your result, streak and topic history are saved.</p>`;
+  document.getElementById("signin").addEventListener("click", signInWithGoogle);
+} else {
+  let mode = "exam";
+  function render() {
+    startArea.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="option ${mode==="exam"?"selected":""}" data-mode="exam">
+          <span class="option-key">${mode==="exam"?"●":""}</span>
+          <span><span style="display:block;font-size:14px;font-weight:500">Exam mode</span><span class="muted" style="font-size:12.5px">Full timer, results at the end</span></span>
+        </button>
+        <button class="option ${mode==="practice"?"selected":""}" data-mode="practice">
+          <span class="option-key">${mode==="practice"?"●":""}</span>
+          <span><span style="display:block;font-size:14px;font-weight:500">Practice mode</span><span class="muted" style="font-size:12.5px">Answer revealed after each question</span></span>
+        </button>
+      </div>
+      <button id="start" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:16px">Start paper</button>
+      <p id="err" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>`;
+    startArea.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { mode = b.dataset.mode; render(); }));
+    document.getElementById("start").addEventListener("click", start);
+  }
+  async function start() {
+    const btn = document.getElementById("start");
+    btn.disabled = true; btn.textContent = "Opening the paper…";
+    const { data, error } = await supabase.rpc("start_attempt", { p_paper_id: paper.id, p_mode: mode });
+    if (error) {
+      document.getElementById("err").textContent = error.message;
+      btn.disabled = false; btn.textContent = "Start paper";
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    location.href = `exam.html?attempt=${row.attempt_id}`;
+  }
+  render();
+}
+</script>
+</body>
+</html>

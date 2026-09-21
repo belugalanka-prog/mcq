@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Questions — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="grid" style="grid-template-columns:1fr 1.9fr;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h2>Upload questions</h2></div>
+        <div id="dropzone" style="border:1px dashed var(--brand);background:var(--brand-soft);border-radius:18px;padding:36px 20px;text-align:center;cursor:pointer">
+          <p style="font-size:15px;font-weight:500;color:var(--brand)">Drop all 50 question images here</p>
+          <p class="muted" style="margin-top:6px;font-size:13px;max-width:38ch;margin-left:auto;margin-right:auto">Name them 001.png through 050.png. They are converted to WebP in your browser before upload, so large screenshots stay fast to load.</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*" multiple hidden>
+        <div id="upload-progress" style="margin-top:16px"></div>
+        <p id="upload-error" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h2>Progress</h2></div>
+        <div class="bar"><span id="progress-bar" style="width:0%"></span></div>
+        <p class="num" id="progress-text" style="margin-top:12px;font-size:14px"></p>
+        <p class="muted" id="review-note" style="margin-top:4px;font-size:13px"></p>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="card-head"><h2>Answer key</h2></div>
+      <p class="muted" style="font-size:13px;margin-bottom:16px">Click an option, or press A to E on your keyboard to set the answer and drop to the next question. Each row saves on its own.</p>
+      <div id="grid"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { CHOICES, qs } from "../../js/format.js";
+
+const paperId = qs("paper");
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+
+const { data: paper } = await supabase.from("papers").select("*").eq("id", paperId).single();
+if (!paper) { document.body.innerHTML = "<p style='padding:40px'>Paper not found.</p>"; throw new Error("not found"); }
+
+mountAdminShell(paper.title, `<a href="papers.html" class="pill pill-ghost">All papers</a>`);
+
+function numberFromName(name) {
+  const m = name.match(/(\d+)(?=\.[a-z0-9]+$)/i) || name.match(/^(\d+)/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function toWebp(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("Could not convert image")), "image/webp", 0.82));
+}
+
+async function handleFiles(fileList) {
+  const list = Array.from(fileList);
+  const usable = [], unnamed = [];
+  list.forEach(f => { const n = numberFromName(f.name); n === null ? unnamed.push(f.name) : usable.push({ file: f, n }); });
+
+  const errEl = document.getElementById("upload-error");
+  errEl.textContent = "";
+  if (!usable.length) { errEl.textContent = "No file name contained a question number. Rename them 001.png, 002.png and so on."; return; }
+  if (unnamed.length) errEl.textContent = `Skipped ${unnamed.length} file(s) with no number in the name: ${unnamed.slice(0,3).join(", ")}${unnamed.length>3?"…":""}`;
+
+  usable.sort((a,b) => a.n - b.n);
+  const progressEl = document.getElementById("upload-progress");
+  const rows = [];
+
+  for (const [i, item] of usable.entries()) {
+    progressEl.innerHTML = `<div class="bar"><span style="width:${(i/usable.length)*100}%"></span></div><p class="num muted" style="margin-top:8px;font-size:13px">Uploading ${i} of ${usable.length}</p>`;
+    try {
+      const webp = await toWebp(item.file);
+      const path = `${paper.subject}/${paper.year ?? "misc"}/${paper.id}/q${String(item.n).padStart(3,"0")}.webp`;
+      const { error: upErr } = await supabase.storage.from("questions").upload(path, webp, { contentType: "image/webp", upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("questions").getPublicUrl(path);
+      rows.push({ question_number: item.n, question_image_url: data.publicUrl });
+    } catch (e) {
+      errEl.textContent = `Stopped at ${item.file.name}: ${e.message ?? "upload failed"}`;
+      break;
+    }
+  }
+  progressEl.innerHTML = "";
+
+  if (rows.length) {
+    const { error } = await supabase.from("questions").upsert(
+      rows.map(r => ({ ...r, paper_id: paper.id, correct_answer: "A" })),
+      { onConflict: "paper_id,question_number" }
+    );
+    if (error) errEl.textContent = error.message;
+    else await loadGrid();
+  }
+  document.getElementById("file-input").value = "";
+}
+
+document.getElementById("dropzone").addEventListener("click", () => document.getElementById("file-input").click());
+document.getElementById("dropzone").addEventListener("dragover", e => e.preventDefault());
+document.getElementById("dropzone").addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+document.getElementById("file-input").addEventListener("change", e => e.target.files.length && handleFiles(e.target.files));
+
+async function loadGrid() {
+  const { data: questions } = await supabase.from("questions")
+    .select("id,question_number,question_image_url,correct_answer,topic,review_text,review_image_url")
+    .eq("paper_id", paper.id).order("question_number");
+
+  const entered = questions?.length ?? 0;
+  const missingReview = questions?.filter(q => !q.review_text && !q.review_image_url).length ?? 0;
+  document.getElementById("progress-bar").style.width = `${Math.min(100, (entered/paper.total_questions)*100)}%`;
+  document.getElementById("progress-text").textContent = `${entered} of ${paper.total_questions} questions uploaded`;
+  document.getElementById("review-note").textContent = missingReview === 0
+    ? "Every question has a worked answer."
+    : `${missingReview} still have no worked answer. Students can still sit the paper, but they will not see an explanation for those.`;
+
+  const gridEl = document.getElementById("grid");
+  if (!questions?.length) {
+    gridEl.innerHTML = `<p class="muted" style="font-size:14px">Nothing uploaded yet. Drop the question images on the left and the key appears here.</p>`;
+    return;
+  }
+
+  gridEl.innerHTML = questions.map(q => `
+    <div id="row-${q.question_number}" data-qid="${q.id}" data-n="${q.question_number}" style="border-top:1px solid var(--hairline);padding:14px 0">
+      <div class="row">
+        <span class="chip num" style="width:48px;justify-content:center">${q.question_number}</span>
+        <img src="${q.question_image_url}" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
+        <div class="row" style="gap:6px" data-choices>
+          ${CHOICES.map(c => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
+            background:${q.correct_answer===c?"var(--brand)":"var(--surface)"};color:${q.correct_answer===c?"#fff":"var(--muted)"};
+            border:1px solid ${q.correct_answer===c?"var(--brand)":"var(--hairline)"}">${c}</button>`).join("")}
+        </div>
+        <input class="field" data-topic value="${q.topic ?? ""}" placeholder="Topic" style="min-width:140px;flex:1">
+        <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
+        <span data-saved style="width:20px;color:var(--ok);opacity:0">✓</span>
+      </div>
+      <textarea class="field hidden" data-review rows="4" style="margin-top:12px" placeholder="Worked answer shown after submission. Plain text or LaTeX, e.g. a = (v - u) / t">${q.review_text ?? ""}</textarea>
+    </div>`).join("");
+
+  gridEl.querySelectorAll("[data-qid]").forEach(row => {
+    const qid = row.dataset.qid, n = Number(row.dataset.n);
+    const saved = row.querySelector("[data-saved]");
+
+    async function patch(changes) {
+      await supabase.from("questions").update(changes).eq("id", qid);
+      saved.style.opacity = "1";
+      setTimeout(() => saved.style.opacity = "0", 1400);
+    }
+
+    row.querySelectorAll("[data-choice]").forEach(btn => btn.addEventListener("click", () => {
+      row.querySelectorAll("[data-choice]").forEach(b => { b.style.background="var(--surface)"; b.style.color="var(--muted)"; b.style.borderColor="var(--hairline)"; });
+      btn.style.background="var(--brand)"; btn.style.color="#fff"; btn.style.borderColor="var(--brand)";
+      patch({ correct_answer: btn.dataset.choice });
+    }));
+
+    row.querySelector("[data-topic]").addEventListener("blur", e => patch({ topic: e.target.value || null }));
+
+    row.querySelector("[data-toggle-review]").addEventListener("click", () => {
+      row.querySelector("[data-review]").classList.toggle("hidden");
+    });
+    row.querySelector("[data-review]").addEventListener("blur", e => patch({ review_text: e.target.value || null }));
+
+    row.addEventListener("keydown", (e) => {
+      const k = e.key.toUpperCase();
+      if (CHOICES.includes(k) && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
+        e.preventDefault();
+        row.querySelector(`[data-choice="${k}"]`).click();
+        const next = document.getElementById(`row-${n+1}`);
+        if (next) { next.querySelector("[data-choice]").focus(); next.scrollIntoView({ block: "center", behavior: "smooth" }); }
+      }
+    });
+    row.querySelectorAll("[data-choice]").forEach(b => b.tabIndex = 0);
+  });
+}
+loadGrid();
+</script>
+</body>
+</html>

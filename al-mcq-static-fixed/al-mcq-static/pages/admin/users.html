@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Students — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+  <div class="card" id="list"></div>
+  <p class="muted" style="margin-top:16px;font-size:13px">Email addresses are kept in Supabase Auth and are never shown on the leaderboard or in any student-facing view.</p>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Students");
+
+const { data: users } = await supabase.from("profiles")
+  .select("id,full_name,role,created_at,user_statistics(completed_papers,accuracy,total_points,current_streak)")
+  .order("created_at",{ascending:false}).limit(100);
+
+document.getElementById("list").innerHTML = users?.length ? `
+  <div class="row" style="padding:12px 24px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--hairline)">
+    <p style="flex:2">Name</p><p style="flex:1">Papers</p><p style="flex:1">Accuracy</p><p style="flex:1">Points</p><p style="flex:1">Streak</p>
+  </div>` + users.map(u => {
+    const s = Array.isArray(u.user_statistics) ? u.user_statistics[0] : u.user_statistics || {};
+    return `<a href="user.html?id=${u.id}" class="row" style="padding:14px 24px;gap:8px;border-top:1px solid var(--hairline)">
+      <div style="flex:2"><p style="font-size:14px;font-weight:500">${esc(u.full_name||"Student")}</p><p class="muted" style="font-size:12px">${u.role}</p></div>
+      <p class="num" style="flex:1;font-size:14px">${s.completed_papers ?? 0}</p>
+      <p class="num" style="flex:1;font-size:14px">${Math.round(s.accuracy ?? 0)}%</p>
+      <p class="num" style="flex:1;font-size:14px">${s.total_points ?? 0}</p>
+      <p class="num" style="flex:1;font-size:14px">${s.current_streak ?? 0}</p>
+    </a>`;
+  }).join("") : `<p class="card-pad muted" style="font-size:14px">No students have signed in yet.</p>`;
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboard — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <h1 style="font-size:32px">Leaderboard</h1>
+  <p class="muted" id="sub" style="margin-top:8px;font-size:14px"></p>
+  <div class="row" id="tabs" style="margin-top:24px"></div>
+  <div class="card" id="list" style="margin-top:20px"></div>
+</div>
+<script type="module">
+import { getSession } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar } from "./js/shell.js";
+import { esc, qs } from "./js/format.js";
+
+const board = qs("board", "all_time");
+const session = await getSession();
+mountRail();
+mountTopbar({ tabs: [{href:"leaderboard.html",label:"Leaderboard"},{href:"dashboard.html",label:"Dashboard"}] });
+
+const BOARDS = [["all_time","All time"],["weekly","This week"],["monthly","This month"],["accuracy","Accuracy"]];
+document.getElementById("tabs").innerHTML = BOARDS.map(([k,l]) => `<a href="leaderboard.html?board=${k}" class="pill ${k===board?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
+
+function periodKey(b) {
+  const now = new Date();
+  if (b === "monthly") return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  if (b === "weekly") {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
+  }
+  return "all";
+}
+function publicName(p, mode) {
+  const full = p?.full_name || "Student";
+  if (mode === "full_name") return full;
+  if (mode === "display_name") return p?.display_name || full.split(" ")[0];
+  const parts = full.split(" ");
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length-1][0]}.` : parts[0];
+}
+
+const { data: settings } = await supabase.from("app_settings").select("key,value");
+const nameMode = settings?.find(s => s.key === "leaderboard_name_mode")?.value || "first_initial";
+const minPapers = Number(settings?.find(s => s.key === "accuracy_board_min_papers")?.value ?? 5);
+document.getElementById("sub").textContent = `Points come from correct answers and completed papers. The accuracy board needs at least ${minPapers} finished papers, so volume alone will not carry you up it.`;
+
+let rows = [];
+if (board === "accuracy") {
+  const { data } = await supabase.from("user_statistics")
+    .select("user_id,accuracy,completed_papers,total_points,profiles(full_name,display_name,hide_from_leaderboard)")
+    .gte("completed_papers", minPapers).order("accuracy",{ascending:false}).limit(50);
+  rows = (data||[]).map(r => ({ ...r, points: r.total_points }));
+} else {
+  const { data } = await supabase.from("leaderboard_entries")
+    .select("user_id,points,accuracy,profiles(full_name,display_name,hide_from_leaderboard)")
+    .eq("board_type", board).eq("period_key", periodKey(board)).order("points",{ascending:false}).limit(50);
+  rows = data || [];
+}
+rows = rows.filter(r => !r.profiles?.hide_from_leaderboard);
+
+document.getElementById("list").innerHTML = rows.length ? rows.map((r, i) => {
+  const me = session?.user.id === r.user_id;
+  return `<div class="row between" style="border-top:1px solid var(--hairline);padding:14px 24px;gap:16px;${me?"background:var(--brand-soft)":""}">
+    <p class="num" style="width:34px;font-size:14px;font-weight:600;color:${i<3?"var(--brand)":"var(--muted)"}">${i+1}</p>
+    <p style="flex:1;font-size:14px;font-weight:500">${esc(publicName(r.profiles, nameMode))}${me?' <span class="chip">You</span>':""}</p>
+    <p class="num" style="font-size:14px;font-weight:600">${board==="accuracy" ? `${r.accuracy}%` : `${r.points} pts`}</p>
+  </div>`;
+}).join("") : `<p class="card-pad muted" style="font-size:14px">Nobody has scored on this board yet. Finish a paper and you will be on it.</p>`;
+</script>
+</body>
+</html>

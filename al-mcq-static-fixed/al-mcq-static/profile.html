@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <div class="grid g2">
+    <div class="card card-pad">
+      <div class="row" style="gap:14px">
+        <img id="avatar" style="width:56px;height:56px;border-radius:999px;object-fit:cover;background:var(--brand-soft)">
+        <div><p id="name" style="font-size:18px;font-weight:600"></p><p class="muted" id="role" style="font-size:13px"></p></div>
+      </div>
+      <div class="grid g3" style="margin-top:24px">
+        <div><p class="num" id="p-papers" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Papers</p></div>
+        <div><p class="num" id="p-acc" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Accuracy</p></div>
+        <div><p class="num" id="p-streak" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Streak</p></div>
+      </div>
+    </div>
+    <div class="card card-pad">
+      <div class="card-head"><h2>Preferences</h2></div>
+      <label class="row" style="justify-content:space-between;font-size:14px;padding:10px 0;border-bottom:1px solid var(--hairline)">
+        Hide me from the leaderboard
+        <input type="checkbox" id="hide-toggle">
+      </label>
+      <button id="signout" class="pill pill-ghost" style="margin-top:20px">Sign out</button>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireUser, signOut } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar } from "./js/shell.js";
+import { esc } from "./js/format.js";
+
+const session = await requireUser();
+if (!session) throw new Error("redirecting");
+const { user, profile } = session;
+
+mountRail();
+mountTopbar({ tabs: [{href:"profile.html",label:"Profile"},{href:"dashboard.html",label:"Dashboard"}], search:false });
+
+document.getElementById("avatar").src = profile?.avatar_url || "https://placehold.co/56x56/EFEDFD/5A4BE1?text=" + (profile?.full_name?.[0] || "S");
+document.getElementById("name").textContent = profile?.full_name || "Student";
+document.getElementById("role").textContent = profile?.role || "student";
+document.getElementById("hide-toggle").checked = !!profile?.hide_from_leaderboard;
+
+const { data: stats } = await supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle();
+document.getElementById("p-papers").textContent = stats?.completed_papers ?? 0;
+document.getElementById("p-acc").textContent = `${Math.round(stats?.accuracy ?? 0)}%`;
+document.getElementById("p-streak").textContent = stats?.current_streak ?? 0;
+
+document.getElementById("hide-toggle").addEventListener("change", async (e) => {
+  await supabase.from("profiles").update({ hide_from_leaderboard: e.target.checked }).eq("id", user.id);
+});
+document.getElementById("signout").addEventListener("click", signOut);
+</script>
+</body>
+</html>

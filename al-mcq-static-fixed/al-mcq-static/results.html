@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Result — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+
+  <div class="grid" style="grid-template-columns:1fr 1.4fr">
+    <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+      <p class="muted" id="r-title" style="font-size:14px"></p>
+      <p class="num" id="r-pct" style="margin-top:12px;font-size:56px;font-weight:600;line-height:1;color:var(--brand)"></p>
+      <p class="num muted" id="r-score" style="margin-top:8px;font-size:15px"></p>
+      <div class="grid g3" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--hairline)">
+        <div><p class="num" id="r-correct" style="font-size:19px;font-weight:600;color:var(--ok)"></p><p class="muted" style="font-size:12px">Correct</p></div>
+        <div><p class="num" id="r-wrong" style="font-size:19px;font-weight:600;color:var(--bad)"></p><p class="muted" style="font-size:12px">Wrong</p></div>
+        <div><p class="num" id="r-skip" style="font-size:19px;font-weight:600"></p><p class="muted" style="font-size:12px">Skipped</p></div>
+      </div>
+      <p class="num muted" id="r-time" style="margin-top:16px;font-size:13px"></p>
+    </div>
+    <div class="card card-pad">
+      <div class="card-head"><h2>Where the marks went</h2></div>
+      <div id="topics"></div>
+    </div>
+  </div>
+
+  <div class="card card-pad" style="margin-top:16px">
+    <div class="card-head"><h2>Every question</h2></div>
+    <div class="nav-grid" id="qgrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px"></div>
+  </div>
+
+  <div id="wrong-list" style="display:flex;flex-direction:column;gap:16px;margin-top:16px"></div>
+
+  <div class="row" style="margin-top:16px">
+    <a id="another" href="#" class="pill pill-brand">Sit another paper</a>
+    <a href="leaderboard.html" class="pill pill-ghost">See the leaderboard</a>
+  </div>
+  <div id="ad-result" style="margin-top:16px"></div>
+</div>
+
+<script type="module">
+import { requireUser } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { clock, esc, qs } from "./js/format.js";
+
+const attemptId = qs("attempt");
+const session = await requireUser();
+if (!session) throw new Error("redirecting");
+
+mountRail();
+
+const { data: attempt } = await supabase.from("attempts")
+  .select("*,papers(title,subject,total_questions)")
+  .eq("id", attemptId).single();
+
+if (!attempt || attempt.user_id !== session.user.id || !attempt.completed_at) {
+  document.querySelector(".wrap").innerHTML = "<p>Result not found.</p>";
+  throw new Error("not found");
+}
+
+const subject = attempt.papers?.subject;
+mountTopbar({ tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"},{href:`subject.html?subject=${subject}`,label:"More papers"}] });
+mountAdSlot(document.getElementById("ad-result"), "RESULT_BOTTOM");
+document.getElementById("another").href = `subject.html?subject=${subject}`;
+
+document.getElementById("r-title").textContent = attempt.papers?.title ?? "";
+document.getElementById("r-pct").textContent = `${attempt.percentage}%`;
+document.getElementById("r-score").textContent = `${attempt.score} out of ${attempt.papers?.total_questions}`;
+document.getElementById("r-correct").textContent = attempt.correct_count;
+document.getElementById("r-wrong").textContent = attempt.wrong_count;
+document.getElementById("r-skip").textContent = attempt.unanswered_count;
+document.getElementById("r-time").textContent = `Finished in ${clock(attempt.time_taken_seconds || 0)}`;
+
+// Safe now: the attempt is closed, so correct_answer can be shown.
+const { data: rows } = await supabase.from("attempt_answers")
+  .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answer,review_text,review_image_url)")
+  .eq("attempt_id", attemptId);
+
+const items = (rows || []).sort((a,b) => (a.questions?.question_number||0) - (b.questions?.question_number||0));
+
+const byTopic = new Map();
+items.forEach(r => {
+  const t = r.questions?.topic;
+  if (!t) return;
+  const cur = byTopic.get(t) || { correct: 0, total: 0 };
+  cur.total++; if (r.is_correct) cur.correct++;
+  byTopic.set(t, cur);
+});
+const topics = [...byTopic.entries()].map(([topic, v]) => ({ topic, ...v, pct: Math.round(v.correct / v.total * 100) })).sort((a,b) => b.pct - a.pct);
+
+document.getElementById("topics").innerHTML = topics.length ? topics.map(t => `
+  <div style="margin-bottom:14px">
+    <div class="row between" style="margin-bottom:6px"><p style="font-size:14px">${esc(t.topic)}</p><p class="num muted" style="font-size:13px">${t.correct}/${t.total} · ${t.pct}%</p></div>
+    <div class="bar"><span style="width:${t.pct}%;background:${t.pct>=75?"var(--ok)":t.pct>=50?"var(--brand)":"var(--warn)"}"></span></div>
+  </div>`).join("") : `<p class="muted" style="font-size:14px">This paper has no topics tagged yet, so there is no breakdown to show.</p>`;
+
+document.getElementById("qgrid").innerHTML = items.map(r => {
+  const q = r.questions, skipped = !r.selected_answer;
+  const bg = skipped ? "var(--hairline)" : r.is_correct ? "rgba(46,212,122,.14)" : "rgba(240,71,108,.12)";
+  const color = skipped ? "var(--muted)" : r.is_correct ? "var(--ok)" : "var(--bad)";
+  return `<a href="#q${q.question_number}" class="num" style="height:40px;border-radius:12px;display:grid;place-items:center;font-size:13px;font-weight:500;background:${bg};color:${color}">${q.question_number}</a>`;
+}).join("");
+
+document.getElementById("wrong-list").innerHTML = items.filter(r => !r.is_correct).map(r => {
+  const q = r.questions;
+  return `<div class="card" id="q${q.question_number}" style="scroll-margin-top:24px">
+    <div class="card-pad">
+      <div class="row" style="margin-bottom:12px"><span class="chip num">Question ${q.question_number}</span>${q.topic ? `<span class="muted" style="font-size:13px">${esc(q.topic)}</span>` : ""}</div>
+      <img class="qimg" src="${q.question_image_url}" alt="Question ${q.question_number}">
+      <div class="row" style="margin-top:16px">
+        <span class="chip" style="background:rgba(240,71,108,.1);color:var(--bad)">You chose ${r.selected_answer || "nothing"}</span>
+        <span class="chip" style="background:rgba(46,212,122,.12);color:var(--ok)">Answer is ${q.correct_answer}</span>
+      </div>
+      ${(q.review_text || q.review_image_url) ? `<div style="margin-top:16px;border-radius:16px;padding:16px;background:var(--brand-soft)">
+        ${q.review_text ? `<p style="white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(q.review_text)}</p>` : ""}
+        ${q.review_image_url ? `<img src="${q.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
+      </div>` : ""}
+    </div></div>`;
+}).join("");
+</script>
+</body>
+</html>

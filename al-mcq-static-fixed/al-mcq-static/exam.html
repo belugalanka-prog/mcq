@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exam — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+<style>
+  /* This page deliberately never imports shell.js's mountAdSlot. No ad
+     placement exists inside a running paper — see the README. */
+  body{padding-bottom:100px}
+  header.exam{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--hairline);
+    padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px))}
+  main.exam{max-width:860px;margin:0 auto;padding:20px 16px}
+  footer.exam{position:fixed;inset:auto 0 0 0;z-index:30;background:var(--surface);border-top:1px solid var(--hairline);
+    padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(27,24,52,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .nav-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  @media(min-width:480px){.nav-grid{grid-template-columns:repeat(10,1fr)}}
+  .nav-cell{height:40px;border-radius:12px;display:grid;place-items:center;font-size:13px;font-weight:500}
+</style>
+</head>
+<body>
+<header class="exam">
+  <div class="row" style="max-width:860px;margin:0 auto">
+    <p id="paper-title" style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
+    <p class="num muted" id="progress" style="margin-left:auto;font-size:14px"></p>
+    <p class="num" id="timer" style="border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;background:var(--brand-soft);color:var(--brand)"></p>
+  </div>
+</header>
+
+<main class="exam">
+  <p id="save-error" class="hidden" style="margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad)">
+    That answer did not save. Check your connection and tap the option again.
+  </p>
+  <div class="card" style="overflow:hidden">
+    <img id="qimg" class="qimg" alt="Question">
+  </div>
+  <div id="options" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
+  <div id="practice-area" style="margin-top:16px"></div>
+</main>
+
+<footer class="exam">
+  <div class="row" style="max-width:860px;margin:0 auto">
+    <button id="prev" class="pill pill-ghost">Previous</button>
+    <button id="nav-open" class="pill pill-soft"></button>
+    <button id="next" class="pill pill-brand" style="margin-left:auto">Next</button>
+  </div>
+</footer>
+
+<div id="nav-modal" class="modal-backdrop hidden">
+  <div class="card card-pad" style="width:100%;max-width:520px">
+    <div class="card-head"><h2>All questions</h2><button id="nav-close" class="pill pill-ghost">Close</button></div>
+    <div class="nav-grid" id="nav-grid"></div>
+    <button id="nav-submit" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:20px">Submit paper</button>
+  </div>
+</div>
+
+<div id="confirm-modal" class="modal-backdrop hidden">
+  <div class="card card-pad" style="width:100%;max-width:400px">
+    <h2 style="font-size:18px">Submit this paper?</h2>
+    <p class="muted" id="confirm-text" style="margin-top:8px;font-size:14px"></p>
+    <div class="row" style="margin-top:20px">
+      <button id="confirm-cancel" class="pill pill-ghost" style="flex:1;justify-content:center">Keep working</button>
+      <button id="confirm-submit" class="pill pill-brand" style="flex:1;justify-content:center">Submit</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { CHOICES, clock, qs } from "./js/format.js";
+
+const attemptId = qs("attempt");
+const session = await requireUser();
+if (!session) throw new Error("redirecting");
+
+const { data: attempt } = await supabase
+  .from("attempts")
+  .select("id,user_id,paper_id,mode,expires_at,completed_at,papers(title)")
+  .eq("id", attemptId).single();
+
+if (!attempt || attempt.user_id !== session.user.id) {
+  document.body.innerHTML = "<p style='padding:40px'>Attempt not found.</p>";
+  throw new Error("not found");
+}
+if (attempt.completed_at) { location.href = `results.html?attempt=${attemptId}`; throw new Error("done"); }
+
+document.getElementById("paper-title").textContent = attempt.papers?.title ?? "Paper";
+
+// get_exam_questions() is a SECURITY DEFINER function that returns only
+// id/question_number/question_image_url/topic — correct_answer never
+// reaches this page. See supabase/schema.sql.
+const { data: questions } = await supabase.rpc("get_exam_questions", { p_attempt_id: attemptId });
+const { data: savedRows } = await supabase.from("attempt_answers").select("question_id,selected_answer").eq("attempt_id", attemptId);
+
+const answers = {};
+(savedRows || []).forEach(r => { if (r.selected_answer) answers[r.question_id] = r.selected_answer; });
+
+let index = 0;
+let reveal = null;
+let enteredAt = Date.now();
+let submitted = false;
+
+function question() { return questions[index]; }
+function answeredCount() { return Object.keys(answers).length; }
+
+async function submit() {
+  if (submitted) return;
+  submitted = true;
+  document.getElementById("confirm-submit").textContent = "Marking…";
+  const { error } = await supabase.rpc("submit_attempt", { p_attempt_id: attemptId });
+  if (error && !String(error.message).includes("already submitted")) {
+    submitted = false;
+    document.getElementById("confirm-submit").textContent = "Submit";
+    alert(error.message);
+    return;
+  }
+  location.href = `results.html?attempt=${attemptId}`;
+}
+
+// Timer derived from the server deadline every tick — never accumulated
+// client-side, so devtools cannot extend it.
+setInterval(() => {
+  const left = (new Date(attempt.expires_at).getTime() - Date.now()) / 1000;
+  document.getElementById("timer").textContent = clock(left);
+  document.getElementById("timer").style.color = left < 300 ? "var(--bad)" : "var(--brand)";
+  document.getElementById("timer").style.background = left < 300 ? "rgba(240,71,108,.1)" : "var(--brand-soft)";
+  if (left <= 0) submit();
+}, 1000);
+
+async function choose(choice) {
+  if (reveal) return;
+  answers[question().id] = choice;
+  renderOptions();
+  const { error } = await supabase.rpc("save_answer", {
+    p_attempt_id: attemptId, p_question_id: question().id, p_selected: choice,
+    p_time_spent: Math.round((Date.now() - enteredAt) / 1000),
+  });
+  document.getElementById("save-error").classList.toggle("hidden", !error);
+}
+
+async function revealAnswer() {
+  const { data, error } = await supabase.rpc("reveal_answer", { p_attempt_id: attemptId, p_question_id: question().id });
+  if (error) return;
+  reveal = Array.isArray(data) ? data[0] : data;
+  renderOptions();
+  renderPracticeArea();
+}
+
+function renderProgress() {
+  document.getElementById("progress").textContent = `${index + 1} / ${questions.length}`;
+  document.getElementById("nav-open").textContent = `${answeredCount()}/${questions.length}`;
+}
+
+function renderQuestion() {
+  document.getElementById("qimg").src = question().question_image_url;
+  document.getElementById("qimg").alt = `Question ${question().question_number}`;
+  renderProgress();
+  renderOptions();
+  renderPracticeArea();
+  document.getElementById("prev").disabled = index === 0;
+  document.getElementById("next").textContent = index === questions.length - 1 ? "Submit paper" : "Next →";
+}
+
+function renderOptions() {
+  const selected = answers[question().id];
+  document.getElementById("options").innerHTML = CHOICES.map(c => {
+    let cls = "option" + (selected === c ? " selected" : "");
+    if (reveal) {
+      if (c === reveal.correct) cls += " correct";
+      else if (selected === c) cls += " wrong";
+    }
+    return `<button class="${cls}" data-choice="${c}"><span class="option-key">${c}</span><span class="muted" style="font-size:14px">Option ${c}</span></button>`;
+  }).join("");
+  document.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => choose(b.dataset.choice)));
+}
+
+function renderPracticeArea() {
+  const area = document.getElementById("practice-area");
+  if (attempt.mode !== "practice") { area.innerHTML = ""; return; }
+  if (!reveal) {
+    area.innerHTML = `<button id="check" class="pill pill-soft" style="width:100%;justify-content:center" ${answers[question().id] ? "" : "disabled"}>Check this answer</button>`;
+    document.getElementById("check")?.addEventListener("click", revealAnswer);
+  } else {
+    area.innerHTML = `<div class="card card-pad">
+      <p style="font-size:14px;font-weight:500;color:${reveal.is_correct ? "var(--ok)" : "var(--bad)"}">
+        ${reveal.is_correct ? "Correct" : `Correct answer is ${reveal.correct}`}</p>
+      ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${reveal.review_text}</p>` : ""}
+      ${reveal.review_image_url ? `<img src="${reveal.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
+    </div>`;
+  }
+}
+
+function go(i) {
+  index = Math.max(0, Math.min(questions.length - 1, i));
+  enteredAt = Date.now();
+  reveal = null;
+  renderQuestion();
+}
+
+document.getElementById("prev").addEventListener("click", () => go(index - 1));
+document.getElementById("next").addEventListener("click", () => {
+  if (index === questions.length - 1) openConfirm();
+  else go(index + 1);
+});
+
+document.getElementById("nav-open").addEventListener("click", () => {
+  document.getElementById("nav-grid").innerHTML = questions.map((q, i) => `
+    <button class="nav-cell num" data-i="${i}" style="background:${answers[q.id] ? "var(--brand)" : "var(--surface)"};
+      color:${answers[q.id] ? "#fff" : "var(--muted)"};border:1px solid ${i===index?"var(--brand)":"var(--hairline)"}">${q.question_number}</button>`).join("");
+  document.querySelectorAll(".nav-cell").forEach(b => b.addEventListener("click", () => { go(+b.dataset.i); document.getElementById("nav-modal").classList.add("hidden"); }));
+  document.getElementById("nav-modal").classList.remove("hidden");
+});
+document.getElementById("nav-close").addEventListener("click", () => document.getElementById("nav-modal").classList.add("hidden"));
+document.getElementById("nav-submit").addEventListener("click", () => { document.getElementById("nav-modal").classList.add("hidden"); openConfirm(); });
+
+function openConfirm() {
+  const left = questions.length - answeredCount();
+  document.getElementById("confirm-text").textContent = left > 0
+    ? `${left} question${left === 1 ? "" : "s"} still have no answer. They will be marked as unanswered.`
+    : "Every question has an answer. Marking happens straight away.";
+  document.getElementById("confirm-modal").classList.remove("hidden");
+}
+document.getElementById("confirm-cancel").addEventListener("click", () => document.getElementById("confirm-modal").classList.add("hidden"));
+document.getElementById("confirm-submit").addEventListener("click", submit);
+
+document.addEventListener("keydown", (e) => {
+  if (!document.getElementById("nav-modal").classList.contains("hidden")) return;
+  if (!document.getElementById("confirm-modal").classList.contains("hidden")) return;
+  const k = e.key.toUpperCase();
+  if (CHOICES.includes(k)) choose(k);
+  if (e.key === "ArrowRight") go(index + 1);
+  if (e.key === "ArrowLeft") go(index - 1);
+});
+
+renderQuestion();
+</script>
+</body>
+</html>

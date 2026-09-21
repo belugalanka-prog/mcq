@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papers — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="grid" style="grid-template-columns:1fr 1.7fr">
+    <div class="card card-pad">
+      <div class="card-head"><h2>Create a paper</h2></div>
+      <form id="new-paper" style="display:flex;flex-direction:column;gap:12px">
+        <label><span class="field-label">Paper title</span><input class="field" name="title" required placeholder="2024 A/L Physics MCQ"></label>
+        <div class="grid g2">
+          <label><span class="field-label">Subject</span><select class="field" name="subject"><option value="physics">Physics</option><option value="chemistry">Chemistry</option></select></label>
+          <label><span class="field-label">Kind</span><select class="field" name="paper_type"><option value="past">Past paper</option><option value="topic">Topic paper</option><option value="model">Model paper</option><option value="teacher">Teacher paper</option></select></label>
+        </div>
+        <div class="grid g3">
+          <label><span class="field-label">Year</span><input class="field" type="number" name="year" value="2024"></label>
+          <label><span class="field-label">Questions</span><input class="field" type="number" name="total_questions" value="50"></label>
+          <label><span class="field-label">Minutes</span><input class="field" type="number" name="duration_minutes" value="60"></label>
+        </div>
+        <label><span class="field-label">Description</span><textarea class="field" name="description" rows="2" placeholder="Optional note shown on the paper cover"></textarea></label>
+        <button type="submit" class="pill pill-brand" style="justify-content:center">Create paper</button>
+        <p id="form-error" class="muted" style="font-size:13px;color:var(--bad)"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-pad" style="padding-bottom:0"><div class="card-head"><h2>All papers</h2></div></div>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Papers");
+
+async function loadPapers() {
+  const { data: papers } = await supabase.from("papers").select("*, questions(count)").order("created_at",{ascending:false});
+  document.getElementById("list").innerHTML = papers?.length ? papers.map(p => {
+    const entered = p.questions?.[0]?.count ?? 0;
+    const pct = Math.min(100, (entered / p.total_questions) * 100);
+    return `<div class="row" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <a href="questions.html?paper=${p.id}" style="font-size:14px;font-weight:500">${esc(p.title)}</a>
+        <p class="num muted" style="margin-top:2px;font-size:12px">${p.subject} · ${p.paper_type} · ${entered}/${p.total_questions} questions in</p>
+      </div>
+      <div class="bar" style="width:96px"><span style="width:${pct}%"></span></div>
+      <a href="questions.html?paper=${p.id}" class="pill pill-ghost">Questions</a>
+      <button class="pill ${p.is_published?"pill-soft":"pill-brand"}" data-publish="${p.id}" data-state="${p.is_published}">${p.is_published?"Published":"Publish"}</button>
+    </div>`;
+  }).join("") : `<p class="card-pad muted" style="font-size:14px">No papers yet. Create one on the left, then upload its question images.</p>`;
+
+  document.querySelectorAll("[data-publish]").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.dataset.publish;
+    const publish = btn.dataset.state !== "true";
+    if (publish) {
+      const { count } = await supabase.from("questions").select("*",{count:"exact",head:true}).eq("paper_id", id);
+      const { data: paper } = await supabase.from("papers").select("total_questions").eq("id", id).single();
+      if ((count ?? 0) < paper.total_questions) {
+        alert(`Only ${count ?? 0} of ${paper.total_questions} questions are in. Add the rest before publishing.`);
+        return;
+      }
+    }
+    await supabase.from("papers").update({ is_published: publish }).eq("id", id);
+    loadPapers();
+  }));
+}
+loadPapers();
+
+document.getElementById("new-paper").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error } = await supabase.from("papers").insert({
+    title: fd.get("title"), subject: fd.get("subject"), year: Number(fd.get("year")) || null,
+    paper_type: fd.get("paper_type"), description: fd.get("description") || null,
+    duration_minutes: Number(fd.get("duration_minutes")) || 60,
+    total_questions: Number(fd.get("total_questions")) || 50,
+    created_by: session.user.id,
+  });
+  document.getElementById("form-error").textContent = error?.message ?? "";
+  if (!error) { e.target.reset(); loadPapers(); }
+});
+</script>
+</body>
+</html>

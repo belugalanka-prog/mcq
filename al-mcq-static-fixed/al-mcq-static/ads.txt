@@ -1,0 +1,4 @@
+# Replace pub-0000000000000000 with your own AdSense publisher ID once approved.
+# Without a matching ads.txt, most buyers will not bid on your inventory,
+# which quietly caps what you earn.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
