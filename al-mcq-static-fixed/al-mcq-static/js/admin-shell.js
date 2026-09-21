@@ -25,3 +25,4 @@ export function mountAdminShell(title, actionHtml = "") {
   mountThemeToggle();
   document.getElementById("admin-title").textContent = title;
 }
+ 
