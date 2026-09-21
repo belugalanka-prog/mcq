@@ -30,10 +30,10 @@ export async function requireStaff() {
 }
 
 export async function signInWithGoogle() {
-  const base = window.APP_CONFIG.SITE_URL || location.origin + location.pathname.replace(/[^/]*$/, "");
+  const base = (window.APP_CONFIG.SITE_URL || location.origin).replace(/\/+$/, "");
   await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${base}dashboard.html` },
+    options: { redirectTo: `${base}/dashboard.html` },
   });
 }
 
