@@ -261,14 +261,27 @@ $$;
 -- Returns ONLY the columns a student is allowed to see before submitting.
 -- This is the column-level equivalent of the old service-role select list
 -- in the Next.js exam page — the database enforces it here instead.
+-- Aggregate-only, public paper stats for the paper cover page. Deliberately
+-- returns no per-user rows — just counts/averages — so it is safe to call
+-- before signing in and does not leak any individual's result.
+create or replace function get_paper_stats(p_paper_id uuid)
+returns table (attempts int, avg_percentage numeric, avg_time_seconds int)
+language sql stable security definer set search_path = public as $$
+  select count(*)::int,
+         round(avg(percentage), 1),
+         round(avg(time_taken_seconds))::int
+    from attempts
+   where paper_id = p_paper_id and completed_at is not null;
+$$;
+
 create or replace function get_exam_questions(p_attempt_id uuid)
 returns table (id uuid, question_number int, question_image_url text, topic text)
 language plpgsql security definer set search_path = public as $$
 declare
   v_paper uuid;
 begin
-  select paper_id into v_paper from attempts
-   where id = p_attempt_id and user_id = auth.uid();
+  select a.paper_id into v_paper from attempts a
+   where a.id = p_attempt_id and a.user_id = auth.uid();
 
   if v_paper is null then raise exception 'Attempt not found.'; end if;
 
@@ -276,6 +289,45 @@ begin
     select q.id, q.question_number, q.question_image_url, q.topic
       from questions q where q.paper_id = v_paper
      order by q.question_number;
+end;
+$$;
+
+alter table attempts add column if not exists paused_at timestamptz;
+alter table attempts add column if not exists total_paused_seconds int default 0;
+
+-- Pause the clock. Practice mode only — exam mode's timer stays a fixed
+-- server deadline on purpose, so it can never be paused to buy extra time.
+create or replace function pause_attempt(p_attempt_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_owner uuid; v_mode exam_mode; v_completed timestamptz; v_paused timestamptz;
+begin
+  select user_id, mode, completed_at, paused_at into v_owner, v_mode, v_completed, v_paused
+    from attempts where id = p_attempt_id;
+  if v_owner is distinct from auth.uid() then raise exception 'Not your attempt.'; end if;
+  if v_completed is not null then raise exception 'Already submitted.'; end if;
+  if v_mode <> 'practice' then raise exception 'Only practice mode can be paused.'; end if;
+  if v_paused is not null then return; end if;
+  update attempts set paused_at = now() where id = p_attempt_id;
+end;
+$$;
+
+-- Resume: push the deadline forward by however long it was paused, so the
+-- student gets back exactly the time they had left.
+create or replace function resume_attempt(p_attempt_id uuid)
+returns table (expires_at timestamptz) language plpgsql security definer set search_path = public as $$
+declare v_owner uuid; v_paused timestamptz;
+begin
+  select user_id, paused_at into v_owner, v_paused from attempts where id = p_attempt_id;
+  if v_owner is distinct from auth.uid() then raise exception 'Not your attempt.'; end if;
+  if v_paused is null then
+    return query select a.expires_at from attempts a where a.id = p_attempt_id; return;
+  end if;
+  update attempts set
+    expires_at = expires_at + (now() - v_paused),
+    total_paused_seconds = total_paused_seconds + extract(epoch from (now() - v_paused))::int,
+    paused_at = null
+  where id = p_attempt_id;
+  return query select a.expires_at from attempts a where a.id = p_attempt_id;
 end;
 $$;
 
@@ -452,6 +504,77 @@ select a.id, a.title, a.placement, a.is_active,
 from advertisements a
 left join ad_events e on e.ad_id = a.id
 group by a.id, a.title, a.placement, a.is_active;
+
+-- =====================================================================
+-- Announcements: staff post a short notice, students see active ones
+-- on the dashboard.
+-- =====================================================================
+create table announcements (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null,
+  body       text,
+  is_active  boolean not null default true,
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+alter table announcements enable row level security;
+create policy "read active announcements" on announcements for select
+  using (is_active or is_staff());
+create policy "staff manage announcements" on announcements for all
+  using (is_staff());
+
+-- =====================================================================
+-- Paper requests: a student asks for a paper (past paper, topic, model)
+-- that isn't up yet. Staff triage from the admin Requests page.
+-- =====================================================================
+create table paper_requests (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references profiles(id) on delete cascade,
+  subject     text not null,
+  note        text not null,
+  status      text not null default 'open' check (status in ('open','fulfilled','declined')),
+  admin_note  text,
+  created_at  timestamptz default now(),
+  resolved_at timestamptz
+);
+create index on paper_requests (status);
+
+alter table paper_requests enable row level security;
+create policy "insert own request" on paper_requests for insert
+  with check (user_id = auth.uid());
+create policy "read own requests" on paper_requests for select
+  using (user_id = auth.uid() or is_staff());
+create policy "staff manage requests" on paper_requests for update
+  using (is_staff());
+create policy "staff delete requests" on paper_requests for delete
+  using (is_staff());
+
+-- =====================================================================
+-- Question reports: students flag a question they think is wrong
+-- (bad image, wrong key, unclear wording). Staff triage from the admin
+-- Reports page.
+-- =====================================================================
+create table question_reports (
+  id           uuid primary key default gen_random_uuid(),
+  question_id  uuid not null references questions(id) on delete cascade,
+  attempt_id   uuid references attempts(id) on delete set null,
+  user_id      uuid not null references profiles(id) on delete cascade,
+  reason       text not null,
+  status       text not null default 'open' check (status in ('open','resolved')),
+  created_at   timestamptz default now(),
+  resolved_at  timestamptz
+);
+create index on question_reports (question_id);
+create index on question_reports (status);
+
+alter table question_reports enable row level security;
+create policy "insert own report" on question_reports for insert
+  with check (user_id = auth.uid());
+create policy "read own reports" on question_reports for select
+  using (user_id = auth.uid());
+create policy "staff manage reports" on question_reports for all
+  using (is_staff());
 
 -- =====================================================================
 -- Storage buckets: create "questions", "reviews", "ads" in the Storage
