@@ -20,6 +20,7 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc, qs, titleCase } from "../../js/format.js";
+import { dbError } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
@@ -30,9 +31,10 @@ document.getElementById("tabs").innerHTML = [["open","Open"],["fulfilled","Fulfi
   .map(([k,l]) => `<a href="requests.html?status=${k}" class="pill ${k===status?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
 
 async function load() {
-  const { data: rows } = await supabase.from("paper_requests")
+  const { data: rows, error } = await supabase.from("paper_requests")
     .select("id,subject,note,status,created_at,profiles(full_name)")
     .eq("status", status).order("created_at", { ascending: false });
+  if (dbError(error, "loading requests")) return;
 
   const listEl = document.getElementById("list");
   if (!rows?.length) { listEl.innerHTML = `<p class="card-pad muted" style="font-size:14px">No ${status} requests.</p>`; return; }
@@ -59,9 +61,10 @@ async function load() {
     const row = btn.closest("[data-id]");
     const newStatus = btn.dataset.status;
     btn.disabled = true;
-    await supabase.from("paper_requests").update({
+    const { error } = await supabase.from("paper_requests").update({
       status: newStatus, resolved_at: newStatus === "open" ? null : new Date().toISOString(),
     }).eq("id", row.dataset.id);
+    if (dbError(error, "updating request")) { btn.disabled = false; return; }
     row.remove();
     if (!document.querySelector("[data-id]")) load();
   }));
