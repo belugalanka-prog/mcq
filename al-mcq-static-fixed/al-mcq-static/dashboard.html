@@ -92,7 +92,7 @@ document.getElementById("announcements").innerHTML = (announcements ?? []).map(a
     ${a.body ? `<p class="muted" style="margin-top:4px;font-size:13px;white-space:pre-wrap">${esc(a.body)}</p>` : ""}
   </div>`).join("");
 
-mountTopbar({ tabs: [{href:"dashboard.html",label:"Dashboard"},{href:"subject.html?subject=physics",label:"Physics"},{href:"subject.html?subject=chemistry",label:"Chemistry"}], action:{href:"subject.html",label:"Browse all papers"} });
+mountTopbar({ back:false, tabs: [{href:"dashboard.html",label:"Dashboard"},{href:"subject.html?subject=physics",label:"Physics"},{href:"subject.html?subject=chemistry",label:"Chemistry"}], action:{href:"subject.html",label:"Browse all papers"} });
 mountAdSlot(document.getElementById("ad-dashboard"), "DASHBOARD_PROMO");
 
 const session = await requireUser();
