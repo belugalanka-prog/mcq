@@ -11,6 +11,7 @@
 <body>
 <div class="wrap">
   <div id="topbar"></div>
+  <div id="announcements" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
 
   <div class="grid" style="grid-template-columns:1.35fr 2fr">
     <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:center">
@@ -51,15 +52,44 @@
       </div>
     </div>
   </div>
+
+  <div class="grid" style="grid-template-columns:1.4fr 1fr;margin-top:16px">
+    <div class="card card-pad">
+      <div class="card-head"><h2>Request a paper</h2></div>
+      <p class="muted" style="font-size:13px;margin-bottom:12px">Don't see the paper you need? Ask for it here.</p>
+      <form id="request-form" style="display:flex;flex-direction:column;gap:10px">
+        <select class="field" name="subject">
+          <option value="physics">Physics</option>
+          <option value="chemistry">Chemistry</option>
+        </select>
+        <textarea class="field" name="note" rows="2" placeholder="e.g. 2019 past paper, or a topic paper on Electrostatics" required></textarea>
+        <button class="pill pill-brand" style="justify-content:center">Send request</button>
+        <p id="request-msg" class="muted" style="font-size:13px"></p>
+      </form>
+    </div>
+    <div class="card card-pad">
+      <div class="card-head"><h2>Your requests</h2></div>
+      <div id="my-requests"><p class="muted" style="font-size:14px">Loading…</p></div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
-import { clock, esc } from "./js/format.js";
+import { clock, esc, titleCase } from "./js/format.js";
 
 mountRail();
+
+const { data: announcements } = await supabase.from("announcements")
+  .select("title,body").eq("is_active", true).order("created_at", { ascending: false }).limit(3);
+document.getElementById("announcements").innerHTML = (announcements ?? []).map(a => `
+  <div class="card card-pad" style="background:var(--brand-soft);border:none">
+    <p style="font-size:14px;font-weight:600;color:var(--brand)">${esc(a.title)}</p>
+    ${a.body ? `<p class="muted" style="margin-top:4px;font-size:13px;white-space:pre-wrap">${esc(a.body)}</p>` : ""}
+  </div>`).join("");
+
 mountTopbar({ tabs: [{href:"dashboard.html",label:"Dashboard"},{href:"subject.html?subject=physics",label:"Physics"},{href:"subject.html?subject=chemistry",label:"Chemistry"}], action:{href:"subject.html?subject=physics",label:"Start a paper"} });
 mountAdSlot(document.getElementById("ad-dashboard"), "DASHBOARD_PROMO");
 
@@ -131,6 +161,40 @@ if (session) {
       <div class="bar" style="width:100px"><span style="width:${a.percentage||0}%"></span></div>
       <p class="num" style="font-size:14px;font-weight:600">${a.percentage}%</p>
     </a>`).join("") : `<p class="muted" style="font-size:14px">No attempts yet. Your first paper will show up here with a full breakdown.</p>`;
+
+  async function loadRequests() {
+    const { data: reqs } = await supabase.from("paper_requests")
+      .select("subject,note,status,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6);
+    const STATUS_COLOR = { open: "var(--muted)", fulfilled: "var(--ok)", declined: "var(--bad)" };
+    document.getElementById("my-requests").innerHTML = reqs?.length ? reqs.map(r => `
+      <div style="border-top:1px solid var(--hairline);padding:12px 0">
+        <div class="row between">
+          <p style="font-size:13px;font-weight:500">${titleCase(r.subject)}</p>
+          <span class="num" style="font-size:12px;font-weight:600;color:${STATUS_COLOR[r.status]}">${titleCase(r.status)}</span>
+        </div>
+        <p class="muted" style="margin-top:4px;font-size:13px">${esc(r.note)}</p>
+      </div>`).join("") : `<p class="muted" style="font-size:14px">No requests yet.</p>`;
+  }
+  loadRequests();
+
+  document.getElementById("request-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const note = fd.get("note")?.toString().trim();
+    const msg = document.getElementById("request-msg");
+    if (!note) return;
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    const { error } = await supabase.from("paper_requests").insert({
+      user_id: user.id, subject: fd.get("subject"), note,
+    });
+    btn.disabled = false;
+    if (error) { msg.style.color = "var(--bad)"; msg.textContent = "Could not send that. Try again."; return; }
+    msg.style.color = "var(--ok)";
+    msg.textContent = "Sent — thanks!";
+    e.target.reset();
+    loadRequests();
+  });
 }
 </script>
 </body>
