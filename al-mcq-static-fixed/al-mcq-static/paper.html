@@ -53,7 +53,7 @@ if (paperError || !paper) {
   throw new Error("not found");
 }
 
-mountTopbar({ tabs: [{href:`subject.html?subject=${paper.subject}`,label:titleCase(paper.subject)},{href:"dashboard.html",label:"Dashboard"}] });
+mountTopbar({ backFallback:`subject.html?subject=${paper.subject}`, tabs: [{href:`subject.html?subject=${paper.subject}`,label:titleCase(paper.subject)},{href:"dashboard.html",label:"Dashboard"}] });
 mountAdSlot(document.getElementById("ad-top"), "PAPER_TOP");
 
 document.getElementById("kind").textContent = titleCase(paper.paper_type);
