@@ -19,15 +19,17 @@ import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar } from "./js/shell.js";
 import { clock, esc } from "./js/format.js";
+import { dbError } from "./js/db.js";
 
 const session = await requireUser();
 if (!session) throw new Error("redirecting");
 mountRail();
 mountTopbar({ tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"}] });
 
-const { data: attempts } = await supabase.from("attempts")
+const { data: attempts, error: attemptsError } = await supabase.from("attempts")
   .select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
   .eq("user_id", session.user.id).not("completed_at","is",null).order("completed_at",{ascending:false});
+dbError(attemptsError, "loading your results");
 
 document.getElementById("list").innerHTML = attempts?.length ? attempts.map(a => `
   <a href="results.html?attempt=${a.id}" class="row between" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:16px">
