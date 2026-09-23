@@ -15,7 +15,7 @@ const ICONS = {
 
 const NAV = [
   ["dashboard.html", "Dashboard", "grid"],
-  ["subject.html?subject=physics", "Papers", "book"],
+  ["subject.html", "Papers", "book"],
   ["results-index.html", "My results", "clock"],
   ["leaderboard.html", "Leaderboard", "trophy"],
   ["profile.html", "Profile", "user"],
@@ -107,7 +107,7 @@ export function mountSearch() {
     const q = input.value.trim();
     if (!q) return;
     if (items().length) { e.preventDefault(); return; }
-    location.href = `subject.html?subject=physics&type=past&q=${encodeURIComponent(q)}`;
+    location.href = `subject.html?q=${encodeURIComponent(q)}`;
   });
 
   if (initial) applyFilter(initial);
