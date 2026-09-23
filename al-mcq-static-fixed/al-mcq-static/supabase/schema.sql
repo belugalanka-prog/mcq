@@ -10,7 +10,7 @@ create extension if not exists pgcrypto;
 
 create type user_role     as enum ('student','teacher','admin');
 create type answer_choice as enum ('A','B','C','D','E');
-create type paper_type    as enum ('past','topic','model','teacher');
+create type paper_type    as enum ('past','topic','model','teacher','special');
 create type exam_mode     as enum ('exam','practice');
 
 create table profiles (
