@@ -38,6 +38,7 @@ import { requireUser, signOut } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar } from "./js/shell.js";
 import { esc } from "./js/format.js";
+import { dbError, toast } from "./js/db.js";
 
 const session = await requireUser();
 if (!session) throw new Error("redirecting");
@@ -51,13 +52,16 @@ document.getElementById("name").textContent = profile?.full_name || "Student";
 document.getElementById("role").textContent = profile?.role || "student";
 document.getElementById("hide-toggle").checked = !!profile?.hide_from_leaderboard;
 
-const { data: stats } = await supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle();
+const { data: stats, error: statsError } = await supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle();
+dbError(statsError, "loading your stats");
 document.getElementById("p-papers").textContent = stats?.completed_papers ?? 0;
 document.getElementById("p-acc").textContent = `${Math.round(stats?.accuracy ?? 0)}%`;
 document.getElementById("p-streak").textContent = stats?.current_streak ?? 0;
 
 document.getElementById("hide-toggle").addEventListener("change", async (e) => {
-  await supabase.from("profiles").update({ hide_from_leaderboard: e.target.checked }).eq("id", user.id);
+  const { error } = await supabase.from("profiles").update({ hide_from_leaderboard: e.target.checked }).eq("id", user.id);
+  if (dbError(error, "saving preference")) { e.target.checked = !e.target.checked; return; }
+  toast("Saved.", "success");
 });
 document.getElementById("signout").addEventListener("click", signOut);
 </script>
