@@ -53,13 +53,18 @@ import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { CHOICES, qs } from "../../js/format.js";
 import { pool, numberFromName, uploadQuestionImages, saveQuestionRows } from "../../js/upload.js";
+import { dbError } from "../../js/db.js";
 
 const paperId = qs("paper");
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
 
-const { data: paper } = await supabase.from("papers").select("*").eq("id", paperId).single();
-if (!paper) { document.body.innerHTML = "<p style='padding:40px'>Paper not found.</p>"; throw new Error("not found"); }
+const { data: paper, error: paperError } = await supabase.from("papers").select("*").eq("id", paperId).single();
+if (paperError || !paper) {
+  dbError(paperError, "loading paper", { silent: true });
+  document.body.innerHTML = `<p style='padding:40px'>Paper not found.${paperError ? `<br><br><b>Error:</b> ${paperError.message}` : ""}</p>`;
+  throw new Error("not found");
+}
 
 mountAdminShell(paper.title, `<a href="papers.html" class="pill pill-ghost">All papers</a>`);
 
@@ -99,9 +104,10 @@ document.getElementById("dropzone").addEventListener("drop", e => { e.preventDef
 document.getElementById("file-input").addEventListener("change", e => e.target.files.length && handleFiles(e.target.files));
 
 async function loadGrid() {
-  const { data: questions } = await supabase.from("questions")
+  const { data: questions, error: questionsError } = await supabase.from("questions")
     .select("id,question_number,question_image_url,correct_answer,topic,review_text,review_image_url")
     .eq("paper_id", paper.id).order("question_number");
+  dbError(questionsError, "loading questions");
 
   const entered = questions?.length ?? 0;
   const missingReview = questions?.filter(q => !q.review_text && !q.review_image_url).length ?? 0;
@@ -139,7 +145,8 @@ async function loadGrid() {
     const saved = row.querySelector("[data-saved]");
 
     async function patch(changes) {
-      await supabase.from("questions").update(changes).eq("id", qid);
+      const { error } = await supabase.from("questions").update(changes).eq("id", qid);
+      if (dbError(error, "saving question")) return;
       saved.style.opacity = "1";
       setTimeout(() => saved.style.opacity = "0", 1400);
     }
@@ -186,15 +193,19 @@ document.getElementById("key-apply").addEventListener("click", async () => {
   const msg = document.getElementById("key-msg");
   const key = parseKey(document.getElementById("key-input").value);
   if (!key.size) { msg.textContent = "Couldn't read any answers. Use letters A to E or digits 1 to 5."; return; }
-  const { data: qs2 } = await supabase.from("questions").select("id,question_number").eq("paper_id", paper.id);
+  const { data: qs2, error: qs2Error } = await supabase.from("questions").select("id,question_number").eq("paper_id", paper.id);
+  if (dbError(qs2Error, "loading questions")) { msg.textContent = "Could not save the key — try again."; return; }
   const byNum = new Map((qs2 ?? []).map(q => [q.question_number, q.id]));
   const todo = [...key.entries()].filter(([n]) => byNum.has(n));
   const noImage = [...key.keys()].filter(n => !byNum.has(n)).length;
   msg.textContent = `Saving ${todo.length}…`;
+  const failed = [];
   await pool(todo, 6, async ([n, letter]) => {
-    await supabase.from("questions").update({ correct_answer: letter }).eq("id", byNum.get(n));
+    const { error } = await supabase.from("questions").update({ correct_answer: letter }).eq("id", byNum.get(n));
+    if (error) failed.push(n);
   });
-  msg.textContent = `Saved ${todo.length} answers.` +
+  msg.textContent = `Saved ${todo.length - failed.length} answers.` +
+    (failed.length ? ` ${failed.length} failed to save (question ${failed.join(", ")}) — try again.` : "") +
     (noImage ? ` ${noImage} answer(s) had no matching question image yet, so they were skipped.` : "") +
     (byNum.size > key.size ? ` ${byNum.size - key.size} question(s) had no answer in the key and were left as they were.` : "");
   await loadGrid();
