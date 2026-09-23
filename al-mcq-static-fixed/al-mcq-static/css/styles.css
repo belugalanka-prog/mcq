@@ -53,6 +53,8 @@ input,select,textarea{font:inherit}
 @media(min-width:768px){.rail-mobile{display:none}}
 
 .topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:24px}
+.back-btn{width:40px;height:40px;flex:none;border-radius:999px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--hairline);color:var(--ink);transition:.15s}
+.back-btn:hover{background:var(--brand-soft);color:var(--brand);border-color:transparent}
 .search{display:none;align-items:center;gap:8px;height:40px;flex:1;min-width:220px;padding:0 16px;border-radius:999px;background:var(--surface);border:1px solid var(--hairline)}
 @media(min-width:1024px){.search{display:flex}}
 .search input{background:transparent;border:none;outline:none;width:100%;font-size:14px;color:var(--ink)}
