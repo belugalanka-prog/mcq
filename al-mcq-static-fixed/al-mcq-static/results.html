@@ -69,7 +69,7 @@ if (attemptError || !attempt || attempt.user_id !== session.user.id || !attempt.
 }
 
 const subject = attempt.papers?.subject;
-mountTopbar({ tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"},{href:`subject.html?subject=${subject}`,label:"More papers"}] });
+mountTopbar({ backFallback:"results-index.html", tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"},{href:`subject.html?subject=${subject}`,label:"More papers"}] });
 mountAdSlot(document.getElementById("ad-result"), "RESULT_BOTTOM");
 document.getElementById("another").href = `subject.html?subject=${subject}`;
 
