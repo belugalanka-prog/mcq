@@ -559,7 +559,7 @@ create table question_reports (
   id           uuid primary key default gen_random_uuid(),
   question_id  uuid not null references questions(id) on delete cascade,
   attempt_id   uuid references attempts(id) on delete set null,
-  user_id      uuid not null references profiles(id) on delete cascade,
+  user_id      uuid not null references profiles(id) on delete cascade, 
   reason       text not null,
   status       text not null default 'open' check (status in ('open','resolved')),
   created_at   timestamptz default now(),
