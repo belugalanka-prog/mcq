@@ -32,6 +32,7 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc } from "../../js/format.js";
+import { dbError, toast } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
@@ -42,15 +43,18 @@ document.getElementById("new-form").addEventListener("submit", async (e) => {
   const fd = new FormData(e.target);
   const title = fd.get("title")?.toString().trim();
   if (!title) return;
-  await supabase.from("announcements").insert({
+  const { error } = await supabase.from("announcements").insert({
     title, body: fd.get("body")?.toString().trim() || null, created_by: session.user.id,
   });
+  if (dbError(error, "posting announcement")) return;
+  toast("Posted.", "success");
   e.target.reset();
   load();
 });
 
 async function load() {
-  const { data: rows } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+  const { data: rows, error } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+  if (dbError(error, "loading announcements")) return;
   const listEl = document.getElementById("list");
   if (!rows?.length) { listEl.innerHTML = `<p class="card-pad muted" style="font-size:14px">Nothing posted yet.</p>`; return; }
   listEl.innerHTML = rows.map(r => `
@@ -69,13 +73,15 @@ async function load() {
   listEl.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", async () => {
     const id = btn.closest("[data-id]").dataset.id;
     const row = rows.find(r => r.id === id);
-    await supabase.from("announcements").update({ is_active: !row.is_active }).eq("id", id);
+    const { error } = await supabase.from("announcements").update({ is_active: !row.is_active }).eq("id", id);
+    if (dbError(error, "updating announcement")) return;
     load();
   }));
   listEl.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", async () => {
     const id = btn.closest("[data-id]").dataset.id;
     if (!confirm("Delete this announcement?")) return;
-    await supabase.from("announcements").delete().eq("id", id);
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (dbError(error, "deleting announcement")) return;
     load();
   }));
 }
