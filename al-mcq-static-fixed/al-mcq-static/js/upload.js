@@ -50,7 +50,8 @@ export async function uploadQuestionImages(paper, items, onProgress = () => {}) 
 
 /** New questions get answer "A"; existing ones only get their image replaced, so re-uploading never wipes an answer key. */
 export async function saveQuestionRows(paper, rows) {
-  const { data: existing } = await supabase.from("questions").select("question_number").eq("paper_id", paper.id);
+  const { data: existing, error: existingError } = await supabase.from("questions").select("question_number").eq("paper_id", paper.id);
+  if (existingError) throw existingError;
   const have = new Set((existing ?? []).map(q => q.question_number));
   const fresh = rows.filter(r => !have.has(r.question_number)).map(r => ({ ...r, paper_id: paper.id, correct_answer: "A" }));
   const old = rows.filter(r => have.has(r.question_number));
@@ -58,9 +59,12 @@ export async function saveQuestionRows(paper, rows) {
     const { error } = await supabase.from("questions").insert(fresh);
     if (error) throw error;
   }
+  const updateFailed = [];
   await pool(old, 5, async r => {
-    await supabase.from("questions").update({ question_image_url: r.question_image_url })
+    const { error } = await supabase.from("questions").update({ question_image_url: r.question_image_url })
       .eq("paper_id", paper.id).eq("question_number", r.question_number);
+    if (error) updateFailed.push(r.question_number);
   });
+  if (updateFailed.length) throw new Error(`Saved, but ${updateFailed.length} image replacement(s) failed to save (question ${updateFailed.join(", ")}).`);
   return { added: fresh.length, replaced: old.length };
 }
