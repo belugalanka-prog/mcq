@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+  <div class="row" id="tabs" style="margin-bottom:20px"></div>
+  <div class="card" id="list"></div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc, qs } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Reports");
+
+const status = qs("status", "open");
+document.getElementById("tabs").innerHTML = [["open","Open"],["resolved","Resolved"]]
+  .map(([k,l]) => `<a href="reports.html?status=${k}" class="pill ${k===status?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
+
+async function load() {
+  const { data: reports } = await supabase.from("question_reports")
+    .select("id,reason,status,created_at,questions(question_number,question_image_url,paper_id,papers(title)),profiles(full_name)")
+    .eq("status", status).order("created_at", { ascending: false });
+
+  const listEl = document.getElementById("list");
+  if (!reports?.length) {
+    listEl.innerHTML = `<p class="card-pad muted" style="font-size:14px">No ${status} reports.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = reports.map(r => {
+    const q = r.questions;
+    return `
+    <div class="row" style="padding:16px 24px;gap:16px;border-top:1px solid var(--hairline);align-items:flex-start" data-id="${r.id}">
+      <img src="${q?.question_image_url ?? ""}" style="width:70px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline);flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div class="row" style="gap:8px">
+          <p style="font-size:14px;font-weight:500">${esc(q?.papers?.title ?? "Paper")} — Q${q?.question_number ?? "?"}</p>
+          <span class="muted" style="font-size:12px">${new Date(r.created_at).toLocaleString()}</span>
+        </div>
+        <p style="margin-top:6px;font-size:14px;white-space:pre-wrap">${esc(r.reason)}</p>
+        <p class="muted" style="margin-top:6px;font-size:12.5px">Reported by ${esc(r.profiles?.full_name || "Student")}</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+        ${q?.paper_id ? `<a href="questions.html?paper=${q.paper_id}" class="pill pill-soft" style="justify-content:center">Fix question</a>` : ""}
+        <button class="pill ${status==="open"?"pill-brand":"pill-ghost"}" data-toggle style="justify-content:center">${status==="open"?"Mark resolved":"Reopen"}</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  listEl.querySelectorAll("[data-toggle]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const row = btn.closest("[data-id]");
+      const newStatus = status === "open" ? "resolved" : "open";
+      btn.disabled = true;
+      await supabase.from("question_reports").update({
+        status: newStatus, resolved_at: newStatus === "resolved" ? new Date().toISOString() : null,
+      }).eq("id", row.dataset.id);
+      row.remove();
+      if (!document.querySelector("[data-id]")) load();
+    });
+  });
+}
+load();
+</script>
+</body>
+</html>
