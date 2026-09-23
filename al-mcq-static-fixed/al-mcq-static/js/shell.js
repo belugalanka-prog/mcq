@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { dbError } from "./db.js";
 
 const ICONS = {
   grid: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>',
@@ -51,7 +52,7 @@ export function mountTopbar({ tabs, action, search = true }) {
     <nav class="row" style="gap:4px">
       ${tabs.map((t, i) => `<a href="${t.href}" class="pill ${i === 0 ? "pill-soft" : "pill-ghost"}">${t.label}</a>`).join("")}
     </nav>
-    ${search ? `<div class="search">${ICONS.search}<input placeholder="Search papers, topics or years"></div>` : ""}
+    ${search ? `<div class="search">${ICONS.search}<input id="topbar-search" placeholder="Search papers, topics or years"></div>` : ""}
     <div class="row" style="margin-left:auto">
       <div class="theme-toggle" id="theme-toggle">
         <button data-theme-btn="light">${ICONS.sun} Light</button>
@@ -61,6 +62,55 @@ export function mountTopbar({ tabs, action, search = true }) {
     </div>
   `;
   mountThemeToggle();
+  if (search) mountSearch();
+}
+
+/**
+ * Wires up the top-bar search input.
+ *
+ * Any page can opt in to live client-side filtering by tagging each
+ * filterable element with `data-search-item="<searchable text>"` and,
+ * optionally, one element with `data-search-empty` to show when a query
+ * matches nothing. If a page has no such items (e.g. the dashboard),
+ * pressing Enter falls back to jumping to the Papers page with the query.
+ */
+export function mountSearch() {
+  const input = document.getElementById("topbar-search");
+  if (!input) return;
+
+  const params = new URLSearchParams(location.search);
+  const initial = params.get("q") || "";
+  if (initial) input.value = initial;
+
+  const items = () => [...document.querySelectorAll("[data-search-item]")];
+
+  const applyFilter = (raw) => {
+    const query = raw.trim().toLowerCase();
+    const list = items();
+    if (!list.length) return;
+    let visible = 0;
+    list.forEach((el) => {
+      const text = (el.dataset.searchItem || el.textContent || "").toLowerCase();
+      const match = !query || text.includes(query);
+      el.style.display = match ? "" : "none";
+      if (match) visible++;
+    });
+    document.querySelectorAll("[data-search-empty]").forEach((el) => {
+      el.style.display = query && visible === 0 ? "" : "none";
+    });
+  };
+
+  input.addEventListener("input", () => applyFilter(input.value));
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const q = input.value.trim();
+    if (!q) return;
+    if (items().length) { e.preventDefault(); return; }
+    location.href = `subject.html?subject=physics&type=past&q=${encodeURIComponent(q)}`;
+  });
+
+  if (initial) applyFilter(initial);
 }
 
 export function mountThemeToggle() {
@@ -96,7 +146,7 @@ export async function mountAdSlot(el, placement, minHeight = 220) {
   if (!el) return;
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: ad } = await supabase
+  const { data: ad, error: adError } = await supabase
     .from("advertisements")
     .select("id, title, image_url, link_url")
     .eq("placement", placement)
@@ -106,6 +156,8 @@ export async function mountAdSlot(el, placement, minHeight = 220) {
     .order("priority", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (dbError(adError, `loading ${placement} ad`, { silent: true })) { el.remove(); return; }
 
   if (ad) {
     el.className = "card";
@@ -138,8 +190,9 @@ export async function mountAdSlot(el, placement, minHeight = 220) {
   const client = window.APP_CONFIG.ADSENSE_CLIENT;
   if (!client || !settingKey) { el.remove(); return; }
 
-  const { data: rows } = await supabase
+  const { data: rows, error: settingsError } = await supabase
     .from("app_settings").select("key,value").in("key", ["adsense_enabled", settingKey]);
+  if (dbError(settingsError, "loading ad settings", { silent: true })) { el.remove(); return; }
   const enabled = rows?.find((r) => r.key === "adsense_enabled")?.value !== false;
   const slot = rows?.find((r) => r.key === settingKey)?.value;
 
