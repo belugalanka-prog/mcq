@@ -49,6 +49,7 @@ import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { clock, esc, qs, CHOICES } from "./js/format.js";
+import { dbError } from "./js/db.js";
 const toNum = c => c ? CHOICES.indexOf(c) + 1 : null;
 
 const attemptId = qs("attempt");
@@ -57,12 +58,13 @@ if (!session) throw new Error("redirecting");
 
 mountRail();
 
-const { data: attempt } = await supabase.from("attempts")
+const { data: attempt, error: attemptError } = await supabase.from("attempts")
   .select("*,papers(title,subject,total_questions)")
   .eq("id", attemptId).single();
 
-if (!attempt || attempt.user_id !== session.user.id || !attempt.completed_at) {
-  document.querySelector(".wrap").innerHTML = "<p>Result not found.</p>";
+if (attemptError || !attempt || attempt.user_id !== session.user.id || !attempt.completed_at) {
+  dbError(attemptError, "loading result", { silent: true });
+  document.querySelector(".wrap").innerHTML = `<p>Result not found.${attemptError ? `<br><br><b>Error:</b> ${esc(attemptError.message)}` : ""}</p>`;
   throw new Error("not found");
 }
 
@@ -80,9 +82,10 @@ document.getElementById("r-skip").textContent = attempt.unanswered_count;
 document.getElementById("r-time").textContent = `Finished in ${clock(attempt.time_taken_seconds || 0)}`;
 
 // Safe now: the attempt is closed, so correct_answer can be shown.
-const { data: rows } = await supabase.from("attempt_answers")
+const { data: rows, error: rowsError } = await supabase.from("attempt_answers")
   .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answer,review_text,review_image_url)")
   .eq("attempt_id", attemptId);
+dbError(rowsError, "loading question breakdown");
 
 const items = (rows || []).sort((a,b) => (a.questions?.question_number||0) - (b.questions?.question_number||0));
 
