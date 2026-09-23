@@ -90,6 +90,7 @@ import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc } from "../../js/format.js";
 import { IMG_RE, numberFromName, uploadQuestionImages, saveQuestionRows } from "../../js/upload.js";
+import { dbError } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
@@ -119,7 +120,8 @@ $("settings").addEventListener("submit", e => e.preventDefault());
 
 /* ---------- list ---------- */
 async function loadPapers() {
-  const { data } = await supabase.from("papers").select("*, questions(count)").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("papers").select("*, questions(count)").order("created_at", { ascending: false });
+  dbError(error, "loading papers");
   papers = data ?? [];
   const groups = [...new Set(papers.map(p => p.group_name).filter(Boolean))].sort(natural);
   $("group-list").innerHTML = groups.map(g => `<option value="${escAttr(g)}">`).join("");
@@ -196,7 +198,10 @@ async function setPublished(ids, publish) {
     ids.forEach(id => { const p = papers.find(x => x.id === id); (p.questions?.[0]?.count ?? 0) >= p.total_questions ? ok.push(id) : skipped.push(p.title); });
     ids = ok;
   }
-  if (ids.length) await supabase.from("papers").update({ is_published: publish }).in("id", ids);
+  if (ids.length) {
+    const { error } = await supabase.from("papers").update({ is_published: publish }).in("id", ids);
+    dbError(error, "updating papers");
+  }
   await loadPapers();
   $("bulk-msg").textContent = `${ids.length} ${publish ? "published" : "unpublished"}.` +
     (skipped.length ? ` Skipped ${skipped.length} that don't have all their questions yet: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : "");
@@ -322,7 +327,8 @@ async function runUpload() {
         if (error) throw error;
         paper = data;
       } else if (paper.total_questions < p.max) {
-        await supabase.from("papers").update({ total_questions: p.max }).eq("id", paper.id);
+        const { error: bumpError } = await supabase.from("papers").update({ total_questions: p.max }).eq("id", paper.id);
+        if (bumpError) throw bumpError;
       }
       const items = [...p.items.entries()].map(([n, file]) => ({ n, file }));
       const { rows, failed } = await uploadQuestionImages(paper, items, (d, t) => live(`uploading ${d}/${t}`));
