@@ -57,6 +57,24 @@ document.getElementById("desc").textContent = paper.description || "";
 document.getElementById("qcount").textContent = paper.total_questions;
 document.getElementById("mins").textContent = paper.duration_minutes;
 
+const { data: statsData } = await supabase.rpc("get_paper_stats", { p_paper_id: paper.id });
+const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+if (stats && stats.attempts > 0) {
+  const statsEl = document.createElement("div");
+  statsEl.className = "row";
+  statsEl.style.cssText = "margin-top:24px;gap:20px;flex-wrap:wrap";
+  statsEl.innerHTML = `
+    <div><p class="num" style="font-size:20px;font-weight:600">${Math.round(stats.avg_percentage)}%</p><p class="muted" style="font-size:12.5px">Average score</p></div>
+    <div><p class="num" style="font-size:20px;font-weight:600">${clockStr(stats.avg_time_seconds)}</p><p class="muted" style="font-size:12.5px">Average time</p></div>
+    <div><p class="num" style="font-size:20px;font-weight:600">${stats.attempts}</p><p class="muted" style="font-size:12.5px">${stats.attempts === 1 ? "Attempt" : "Attempts"} so far</p></div>`;
+  document.getElementById("mins").closest(".grid").insertAdjacentElement("afterend", statsEl);
+}
+function clockStr(totalSeconds) {
+  if (!totalSeconds) return "—";
+  const m = Math.round(totalSeconds / 60);
+  return `${m} min`;
+}
+
 const session = await getSession();
 const startArea = document.getElementById("start-area");
 
