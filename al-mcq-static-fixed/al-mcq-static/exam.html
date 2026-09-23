@@ -26,8 +26,10 @@
 <body>
 <header class="exam">
   <div class="row" style="max-width:860px;margin:0 auto">
+    <button id="exit-open" class="pill pill-ghost" style="font-size:13px">Exit</button>
     <p id="paper-title" style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
     <p class="num muted" id="progress" style="margin-left:auto;font-size:14px"></p>
+    <button id="pause-btn" class="pill pill-soft hidden" style="font-size:13px">Pause</button>
     <p class="num" id="timer" style="border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;background:var(--brand-soft);color:var(--brand)"></p>
   </div>
 </header>
@@ -73,6 +75,25 @@
   </div>
 </div>
 
+<div id="exit-modal" class="modal-backdrop hidden">
+  <div class="card card-pad" style="width:100%;max-width:400px">
+    <h2 style="font-size:18px">Leave this paper?</h2>
+    <p class="muted" id="exit-text" style="margin-top:8px;font-size:14px"></p>
+    <div class="row" style="margin-top:20px">
+      <button id="exit-cancel" class="pill pill-ghost" style="flex:1;justify-content:center">Keep working</button>
+      <button id="exit-confirm" class="pill pill-brand" style="flex:1;justify-content:center">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="pause-overlay" class="modal-backdrop hidden" style="z-index:60">
+  <div class="card card-pad" style="width:100%;max-width:360px;text-align:center">
+    <h2 style="font-size:18px">Paused</h2>
+    <p class="muted" style="margin-top:8px;font-size:14px">Your clock is stopped. Come back whenever you're ready.</p>
+    <button id="resume-btn" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:20px">Resume</button>
+  </div>
+</div>
+
 <div id="report-modal" class="modal-backdrop hidden">
   <div class="card card-pad" style="width:100%;max-width:420px">
     <h2 style="font-size:18px">Report a problem</h2>
@@ -97,7 +118,7 @@ if (!session) throw new Error("redirecting");
 
 const { data: attempt } = await supabase
   .from("attempts")
-  .select("id,user_id,paper_id,mode,expires_at,completed_at,papers(title)")
+  .select("id,user_id,paper_id,mode,expires_at,completed_at,paused_at,papers(title)")
   .eq("id", attemptId).single();
 
 if (!attempt || attempt.user_id !== session.user.id) {
@@ -126,6 +147,13 @@ let index = 0;
 let reveal = null;
 let enteredAt = Date.now();
 let submitted = false;
+let paused = !!attempt.paused_at;
+
+if (attempt.mode === "practice") {
+  document.getElementById("pause-btn").classList.remove("hidden");
+  document.getElementById("pause-btn").textContent = paused ? "Paused" : "Pause";
+}
+document.getElementById("pause-overlay").classList.toggle("hidden", !paused);
 
 function question() { return questions[index]; }
 function answeredCount() { return Object.keys(answers).length; }
@@ -147,6 +175,7 @@ async function submit() {
 // Timer derived from the server deadline every tick — never accumulated
 // client-side, so devtools cannot extend it.
 setInterval(() => {
+  if (paused) { document.getElementById("timer").textContent = "⏸ Paused"; return; }
   const left = (new Date(attempt.expires_at).getTime() - Date.now()) / 1000;
   document.getElementById("timer").textContent = clock(left);
   document.getElementById("timer").style.color = left < 300 ? "var(--bad)" : "var(--brand)";
@@ -155,7 +184,7 @@ setInterval(() => {
 }, 1000);
 
 async function choose(choice) {
-  if (reveal) return;
+  if (reveal || paused) return;
   answers[question().id] = choice;
   renderOptions();
   const { error } = await supabase.rpc("save_answer", {
@@ -166,6 +195,7 @@ async function choose(choice) {
 }
 
 async function revealAnswer() {
+  if (paused) return;
   const { data, error } = await supabase.rpc("reveal_answer", { p_attempt_id: attemptId, p_question_id: question().id });
   if (error) return;
   reveal = Array.isArray(data) ? data[0] : data;
@@ -250,6 +280,44 @@ function openConfirm() {
 }
 document.getElementById("confirm-cancel").addEventListener("click", () => document.getElementById("confirm-modal").classList.add("hidden"));
 document.getElementById("confirm-submit").addEventListener("click", submit);
+
+document.getElementById("pause-btn").addEventListener("click", async () => {
+  const btn = document.getElementById("pause-btn");
+  btn.disabled = true;
+  if (!paused) {
+    const { error } = await supabase.rpc("pause_attempt", { p_attempt_id: attemptId });
+    if (!error) {
+      paused = true;
+      document.getElementById("pause-overlay").classList.remove("hidden");
+      btn.textContent = "Paused";
+    }
+  }
+  btn.disabled = false;
+});
+document.getElementById("resume-btn").addEventListener("click", async () => {
+  const btn = document.getElementById("resume-btn");
+  btn.disabled = true; btn.textContent = "Resuming…";
+  const { data, error } = await supabase.rpc("resume_attempt", { p_attempt_id: attemptId });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    attempt.expires_at = row.expires_at;
+    paused = false;
+    document.getElementById("pause-overlay").classList.add("hidden");
+    document.getElementById("pause-btn").textContent = "Pause";
+  }
+  btn.disabled = false; btn.textContent = "Resume";
+});
+
+document.getElementById("exit-open").addEventListener("click", () => {
+  document.getElementById("exit-text").textContent = attempt.mode === "practice" && !paused
+    ? "Your answers so far are saved. Pause first if you don't want the clock to keep running while you're away."
+    : attempt.mode === "practice" && paused
+    ? "Your answers so far are saved, and the clock is paused, so nothing is lost."
+    : "Your answers so far are saved, but the timer keeps running even after you leave — come back before it runs out.";
+  document.getElementById("exit-modal").classList.remove("hidden");
+});
+document.getElementById("exit-cancel").addEventListener("click", () => document.getElementById("exit-modal").classList.add("hidden"));
+document.getElementById("exit-confirm").addEventListener("click", () => { location.href = "dashboard.html"; });
 
 document.getElementById("report-open").addEventListener("click", () => {
   document.getElementById("report-qnum").textContent = question().question_number;
