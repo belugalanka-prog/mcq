@@ -41,6 +41,7 @@
   </div>
   <div id="options" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
   <div id="practice-area" style="margin-top:16px"></div>
+  <button id="report-open" class="pill pill-ghost" style="margin-top:16px;font-size:13px">⚑ Report a problem with this question</button>
 </main>
 
 <footer class="exam">
@@ -68,6 +69,19 @@
     <div class="row" style="margin-top:20px">
       <button id="confirm-cancel" class="pill pill-ghost" style="flex:1;justify-content:center">Keep working</button>
       <button id="confirm-submit" class="pill pill-brand" style="flex:1;justify-content:center">Submit</button>
+    </div>
+  </div>
+</div>
+
+<div id="report-modal" class="modal-backdrop hidden">
+  <div class="card card-pad" style="width:100%;max-width:420px">
+    <h2 style="font-size:18px">Report a problem</h2>
+    <p class="muted" style="margin-top:6px;font-size:13px">Question <span id="report-qnum"></span>. This does not affect your answer or your time — it just flags the question for the admin to check.</p>
+    <textarea id="report-reason" class="field" rows="4" style="margin-top:14px" placeholder="What's wrong? e.g. image is blurry, answer key looks wrong, options are cut off…"></textarea>
+    <p id="report-msg" class="muted" style="margin-top:8px;font-size:13px"></p>
+    <div class="row" style="margin-top:16px">
+      <button id="report-cancel" class="pill pill-ghost" style="flex:1;justify-content:center">Cancel</button>
+      <button id="report-submit" class="pill pill-brand" style="flex:1;justify-content:center">Send report</button>
     </div>
   </div>
 </div>
@@ -236,6 +250,34 @@ function openConfirm() {
 }
 document.getElementById("confirm-cancel").addEventListener("click", () => document.getElementById("confirm-modal").classList.add("hidden"));
 document.getElementById("confirm-submit").addEventListener("click", submit);
+
+document.getElementById("report-open").addEventListener("click", () => {
+  document.getElementById("report-qnum").textContent = question().question_number;
+  document.getElementById("report-reason").value = "";
+  document.getElementById("report-msg").textContent = "";
+  document.getElementById("report-submit").disabled = false;
+  document.getElementById("report-submit").textContent = "Send report";
+  document.getElementById("report-modal").classList.remove("hidden");
+});
+document.getElementById("report-cancel").addEventListener("click", () => document.getElementById("report-modal").classList.add("hidden"));
+document.getElementById("report-submit").addEventListener("click", async () => {
+  const reason = document.getElementById("report-reason").value.trim();
+  const msg = document.getElementById("report-msg");
+  if (!reason) { msg.textContent = "Say a bit about what's wrong first."; return; }
+  const btn = document.getElementById("report-submit");
+  btn.disabled = true; btn.textContent = "Sending…";
+  const { error } = await supabase.from("question_reports").insert({
+    question_id: question().id, attempt_id: attemptId, user_id: session.user.id, reason,
+  });
+  if (error) {
+    msg.textContent = "Could not send that. Try again.";
+    btn.disabled = false; btn.textContent = "Send report";
+    return;
+  }
+  msg.style.color = "var(--ok)";
+  msg.textContent = "Thanks — sent to the admin.";
+  setTimeout(() => document.getElementById("report-modal").classList.add("hidden"), 1000);
+});
 
 document.addEventListener("keydown", (e) => {
   if (!document.getElementById("nav-modal").classList.contains("hidden")) return;
