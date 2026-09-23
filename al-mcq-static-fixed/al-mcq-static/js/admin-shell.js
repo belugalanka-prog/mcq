@@ -5,6 +5,8 @@ const NAV = [
   ["papers.html", "Papers"],
   ["users.html", "Students"],
   ["reports.html", "Reports"],
+  ["requests.html", "Requests"],
+  ["announcements.html", "Announcements"],
   ["ads.html", "Advertising"],
 ];
 
