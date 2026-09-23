@@ -41,12 +41,17 @@ import { getSession, signInWithGoogle } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
+import { dbError } from "./js/db.js";
 
 const paperId = qs("id");
 mountRail();
 
-const { data: paper } = await supabase.from("papers").select("*").eq("id", paperId).eq("is_published", true).single();
-if (!paper) { document.querySelector(".wrap").innerHTML = "<p>Paper not found.</p>"; throw new Error("not found"); }
+const { data: paper, error: paperError } = await supabase.from("papers").select("*").eq("id", paperId).eq("is_published", true).single();
+if (paperError || !paper) {
+  dbError(paperError, "loading paper", { silent: true });
+  document.querySelector(".wrap").innerHTML = `<p>Paper not found.${paperError ? `<br><br><b>Error:</b> ${esc(paperError.message)}` : ""}</p>`;
+  throw new Error("not found");
+}
 
 mountTopbar({ tabs: [{href:`subject.html?subject=${paper.subject}`,label:titleCase(paper.subject)},{href:"dashboard.html",label:"Dashboard"}] });
 mountAdSlot(document.getElementById("ad-top"), "PAPER_TOP");
@@ -57,7 +62,8 @@ document.getElementById("desc").textContent = paper.description || "";
 document.getElementById("qcount").textContent = paper.total_questions;
 document.getElementById("mins").textContent = paper.duration_minutes;
 
-const { data: statsData } = await supabase.rpc("get_paper_stats", { p_paper_id: paper.id });
+const { data: statsData, error: statsError } = await supabase.rpc("get_paper_stats", { p_paper_id: paper.id });
+dbError(statsError, "loading paper stats", { silent: true });
 const stats = Array.isArray(statsData) ? statsData[0] : statsData;
 if (stats && stats.attempts > 0) {
   const statsEl = document.createElement("div");
