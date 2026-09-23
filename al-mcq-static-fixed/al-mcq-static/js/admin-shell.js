@@ -4,6 +4,7 @@ const NAV = [
   ["index.html", "Overview"],
   ["papers.html", "Papers"],
   ["users.html", "Students"],
+  ["reports.html", "Reports"],
   ["ads.html", "Advertising"],
 ];
 
@@ -25,4 +26,3 @@ export function mountAdminShell(title, actionHtml = "") {
   mountThemeToggle();
   document.getElementById("admin-title").textContent = title;
 }
- 
