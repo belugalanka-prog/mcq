@@ -146,24 +146,30 @@ export async function mountAdSlot(el, placement, minHeight = 220) {
   if (!el) return;
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: ad, error: adError } = await supabase
+  // Fetch every active row for this placement and pick the date window in
+  // JS. (Two chained .or() calls used to do this server-side, but Postgrest
+  // doesn't reliably combine two same-named `or=` filters — the row could
+  // get excluded even when it should match, so ads silently never showed.
+  // Filtering client-side sidesteps that entirely and is just as cheap for
+  // a table this small.)
+  const { data: candidates, error: adError } = await supabase
     .from("advertisements")
-    .select("id, title, image_url, link_url")
+    .select("id, title, image_url, link_url, start_date, end_date")
     .eq("placement", placement)
     .eq("is_active", true)
-    .or(`start_date.is.null,start_date.lte.${today}`)
-    .or(`end_date.is.null,end_date.gte.${today}`)
-    .order("priority", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("priority", { ascending: false });
 
   if (dbError(adError, `loading ${placement} ad`, { silent: true })) { el.remove(); return; }
+
+  const ad = (candidates ?? []).find(a =>
+    (!a.start_date || a.start_date <= today) && (!a.end_date || a.end_date >= today));
 
   if (ad) {
     el.className = "card";
     el.style.overflow = "hidden";
     el.style.cursor = "pointer";
-    el.innerHTML = `<img src="${ad.image_url}" alt="${ad.title ?? "Advertisement"}" style="width:100%;height:100%;object-fit:cover;display:block">`;
+    el.style.minHeight = `${minHeight}px`;
+    el.innerHTML = `<img src="${ad.image_url}" alt="${ad.title ?? "Advertisement"}" style="width:100%;height:100%;min-height:${minHeight}px;object-fit:cover;display:block">`;
     el.onclick = () => {
       supabase.rpc("track_ad_event", { p_ad_id: ad.id, p_type: "click", p_placement: placement });
       window.open(ad.link_url ?? "#", "_blank", "noopener");
