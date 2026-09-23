@@ -11,10 +11,19 @@
 <body>
 <div class="wrap">
   <div id="topbar"></div>
-  <h1 id="title" style="font-size:32px"></h1>
-  <p class="muted" style="margin-top:8px;font-size:14px">Choose a paper. Exam mode runs the clock and holds the answers until you submit.</p>
-  <div class="row" id="type-tabs" style="margin-top:24px"></div>
-  <div class="row" id="group-tabs" style="margin-top:14px"></div>
+  <h1 style="font-size:32px">All papers</h1>
+  <p class="muted" style="margin-top:8px;font-size:14px">Every paper in one place. Filter by subject and kind, or just search — exam mode runs the clock and holds the answers until you submit.</p>
+
+  <div style="margin-top:24px">
+    <p class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Subject</p>
+    <div class="row" id="subject-tabs" style="flex-wrap:wrap"></div>
+  </div>
+  <div style="margin-top:16px">
+    <p class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Kind</p>
+    <div class="row" id="type-tabs" style="flex-wrap:wrap"></div>
+  </div>
+  <div class="row" id="group-tabs" style="margin-top:14px;flex-wrap:wrap"></div>
+
   <div id="papers" style="margin-top:20px"></div>
   <div id="ad-sidebar" style="margin-top:16px"></div>
 </div>
@@ -25,68 +34,132 @@ import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
-const subject = qs("subject", "physics");
-const type = qs("type", "past");
-const group = qs("group");
-
 mountRail();
 mountTopbar({ tabs: [
-  {href:`subject.html?subject=${subject}`, label: titleCase(subject)},
+  {href:"subject.html", label:"All papers"},
   {href:"dashboard.html", label:"Dashboard"},
-  {href:`subject.html?subject=${subject==="physics"?"chemistry":"physics"}`, label: subject==="physics"?"Chemistry":"Physics"},
 ]});
 mountAdSlot(document.getElementById("ad-sidebar"), "SIDEBAR", 180);
 
-document.getElementById("title").textContent = titleCase(subject);
+const SUBJECTS = [["all","All subjects"],["physics","Physics"],["chemistry","Chemistry"]];
+const TYPES = [["all","All kinds"],["past","Past papers"],["topic","Topic papers"],["model","Model papers"],["teacher","Teacher papers"],["special","Special MCQs"]];
 
-const TYPES = [["past","Past papers"],["topic","Topic papers"],["model","Model papers"],["teacher","Teacher papers"]];
-document.getElementById("type-tabs").innerHTML = TYPES.map(([k,l]) =>
-  `<a href="subject.html?subject=${subject}&type=${k}" class="pill ${k===type?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
+// State, seeded from the URL so old links (e.g. subject.html?subject=physics&type=past)
+// still land pre-filtered, and so filter choices are shareable / survive a refresh.
+let subjectFilter = qs("subject", "all");
+let typeFilter = qs("type", "all");
+let group = qs("group");
+if (!SUBJECTS.some(([k]) => k === subjectFilter)) subjectFilter = "all";
+if (!TYPES.some(([k]) => k === typeFilter)) typeFilter = "all";
 
 const { data: papers, error: papersError } = await supabase.from("papers")
-  .select("id,title,year,duration_minutes,total_questions,description,group_name")
-  .eq("subject", subject).eq("paper_type", type).eq("is_published", true)
+  .select("id,title,subject,paper_type,year,duration_minutes,total_questions,description,group_name")
+  .eq("is_published", true)
   .order("year", { ascending: false });
 dbError(papersError, "loading papers");
+const all = papers ?? [];
 
 const natural = (a, b) => (a ?? "").localeCompare(b ?? "", undefined, { numeric: true, sensitivity: "base" });
-const allGroups = [...new Set((papers ?? []).map(p => p.group_name).filter(Boolean))].sort(natural);
 
-if (allGroups.length > 1) {
-  const base = `subject.html?subject=${subject}&type=${type}`;
-  document.getElementById("group-tabs").innerHTML =
-    `<a href="${base}" class="pill ${!group ? "pill-soft" : "pill-ghost"}">All</a>` +
-    allGroups.map(g => `<a href="${base}&group=${encodeURIComponent(g)}" class="pill ${g === group ? "pill-soft" : "pill-ghost"}">${esc(g)}</a>`).join("");
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (subjectFilter !== "all") p.set("subject", subjectFilter);
+  if (typeFilter !== "all") p.set("type", typeFilter);
+  if (group) p.set("group", group);
+  const q = document.getElementById("topbar-search")?.value?.trim();
+  if (q) p.set("q", q);
+  history.replaceState(null, "", p.toString() ? `subject.html?${p}` : "subject.html");
 }
 
-const shown = (papers ?? []).filter(p => !group || p.group_name === group);
-const searchText = (p) => [p.title, p.year, p.group_name, p.description].filter(Boolean).join(" ");
-const card = (p) => `
-  <a href="paper.html?id=${p.id}" class="card card-pad" data-search-item="${esc(searchText(p))}">
-    ${p.year ? `<span class="chip num">${p.year}</span>` : ""}
+function renderTabs() {
+  document.getElementById("subject-tabs").innerHTML = SUBJECTS.map(([k, l]) =>
+    `<button type="button" class="pill ${k === subjectFilter ? "pill-brand" : "pill-ghost"}" data-subject="${k}">${l}</button>`).join("");
+  document.getElementById("type-tabs").innerHTML = TYPES.map(([k, l]) =>
+    `<button type="button" class="pill ${k === typeFilter ? "pill-brand" : "pill-ghost"}" data-type="${k}">${l}</button>`).join("");
+
+  document.querySelectorAll("[data-subject]").forEach(btn => btn.addEventListener("click", () => {
+    subjectFilter = btn.dataset.subject; group = null; renderTabs(); renderPapers();
+  }));
+  document.querySelectorAll("[data-type]").forEach(btn => btn.addEventListener("click", () => {
+    typeFilter = btn.dataset.type; group = null; renderTabs(); renderPapers();
+  }));
+}
+
+function card(p) {
+  const searchText = [p.title, p.year, p.group_name, p.description, titleCase(p.subject), TYPES.find(t => t[0] === p.paper_type)?.[1]].filter(Boolean).join(" ");
+  return `
+  <a href="paper.html?id=${p.id}" class="card card-pad" data-search-item="${esc(searchText)}">
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      ${p.year ? `<span class="chip num">${p.year}</span>` : ""}
+      ${(subjectFilter === "all" || typeFilter === "all") ? `<span class="chip">${typeFilter === "all" ? TYPES.find(t => t[0] === p.paper_type)?.[1] : titleCase(p.subject)}</span>` : ""}
+    </div>
     <p style="margin-top:12px;font-size:16px;font-weight:500;line-height:1.3">${esc(p.title)}</p>
     ${p.description ? `<p class="muted" style="margin-top:8px;font-size:13px">${esc(p.description)}</p>` : ""}
     <p class="num muted" style="margin-top:16px;font-size:13px">${p.total_questions} questions · ${p.duration_minutes} min</p>
   </a>`;
-
-if (!shown.length) {
-  document.getElementById("papers").innerHTML = `<div class="card card-pad"><p class="muted" style="font-size:14px">No ${TYPES.find(t=>t[0]===type)[1].toLowerCase()} published for ${titleCase(subject)} yet. Check another tab, or come back shortly.</p></div>`;
-} else {
-  const sections = new Map();
-  shown.forEach(p => { const k = p.group_name ?? ""; if (!sections.has(k)) sections.set(k, []); sections.get(k).push(p); });
-  const keys = [...sections.keys()].sort((a, b) => a === "" ? 1 : b === "" ? -1 : natural(a, b));
-  const heads = allGroups.length > 0;
-  document.getElementById("papers").innerHTML = keys.map(k => {
-    const items = sections.get(k).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || natural(a.title, b.title));
-    return `${heads ? `<h2 style="font-size:18px;margin:28px 0 12px">${k ? esc(k) : "Other papers"}</h2>` : ""}
-      <div class="grid g3">${items.map(card).join("")}</div>`;
-  }).join("") + `<div class="card card-pad" data-search-empty style="display:none;margin-top:20px"><p class="muted" style="font-size:14px">No papers match your search.</p></div>`;
 }
 
-// Cards were just rendered — re-run the top-bar search filter (it ran once
-// on mount, before any [data-search-item] elements existed) so a `?q=`
-// deep link or an in-progress query is applied immediately.
-document.getElementById("topbar-search")?.dispatchEvent(new Event("input"));
+function renderPapers() {
+  syncUrl();
+  const bySubjectType = all.filter(p =>
+    (subjectFilter === "all" || p.subject === subjectFilter) &&
+    (typeFilter === "all" || p.paper_type === typeFilter));
+
+  // Group tabs only make sense once the list has been narrowed to one kind —
+  // "group_name" is a series within a kind (e.g. "2024 monthly tests").
+  const allGroups = typeFilter !== "all"
+    ? [...new Set(bySubjectType.map(p => p.group_name).filter(Boolean))].sort(natural)
+    : [];
+  const groupTabsEl = document.getElementById("group-tabs");
+  if (allGroups.length > 1) {
+    groupTabsEl.innerHTML =
+      `<button type="button" class="pill ${!group ? "pill-soft" : "pill-ghost"}" data-group="">All</button>` +
+      allGroups.map(g => `<button type="button" class="pill ${g === group ? "pill-soft" : "pill-ghost"}" data-group="${esc(g)}">${esc(g)}</button>`).join("");
+    groupTabsEl.querySelectorAll("[data-group]").forEach(btn => btn.addEventListener("click", () => {
+      group = btn.dataset.group || null; renderPapers();
+    }));
+  } else {
+    groupTabsEl.innerHTML = "";
+  }
+
+  const shown = bySubjectType.filter(p => !group || p.group_name === group);
+  const papersEl = document.getElementById("papers");
+
+  if (!shown.length) {
+    papersEl.innerHTML = `<div class="card card-pad"><p class="muted" style="font-size:14px">No papers match these filters yet. Try a different subject or kind, or check back shortly.</p></div>`;
+    return;
+  }
+
+  let sectionsHtml;
+  if (typeFilter === "all") {
+    // Section by kind so it reads like a menu, not a wall of cards.
+    const order = TYPES.filter(([k]) => k !== "all").map(([k]) => k);
+    sectionsHtml = order.filter(k => shown.some(p => p.paper_type === k)).map(k => {
+      const items = shown.filter(p => p.paper_type === k).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || natural(a.title, b.title));
+      return `<h2 style="font-size:18px;margin:28px 0 12px">${TYPES.find(t => t[0] === k)[1]}</h2>
+        <div class="grid g3">${items.map(card).join("")}</div>`;
+    }).join("");
+  } else {
+    const sections = new Map();
+    shown.forEach(p => { const k = p.group_name ?? ""; if (!sections.has(k)) sections.set(k, []); sections.get(k).push(p); });
+    const keys = [...sections.keys()].sort((a, b) => a === "" ? 1 : b === "" ? -1 : natural(a, b));
+    const heads = allGroups.length > 0;
+    sectionsHtml = keys.map(k => {
+      const items = sections.get(k).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || natural(a.title, b.title));
+      return `${heads ? `<h2 style="font-size:18px;margin:28px 0 12px">${k ? esc(k) : "Other papers"}</h2>` : ""}
+        <div class="grid g3">${items.map(card).join("")}</div>`;
+    }).join("");
+  }
+
+  papersEl.innerHTML = sectionsHtml + `<div class="card card-pad" data-search-empty style="display:none;margin-top:20px"><p class="muted" style="font-size:14px">No papers match your search.</p></div>`;
+
+  // Cards were just (re)rendered — re-run the top-bar search filter so a
+  // `?q=` deep link, or whatever the visitor already typed, still applies.
+  document.getElementById("topbar-search")?.dispatchEvent(new Event("input"));
+}
+
+renderTabs();
+renderPapers();
 </script>
 </body>
 </html>
