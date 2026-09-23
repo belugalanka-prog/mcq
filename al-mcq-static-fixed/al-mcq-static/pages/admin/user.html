@@ -29,22 +29,32 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { clock, esc, qs } from "../../js/format.js";
+import { dbError } from "../../js/db.js";
 
 const uid = qs("id");
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
 
-const { data: profile } = await supabase.from("profiles").select("*").eq("id", uid).single();
-if (!profile) { document.body.innerHTML = "<p style='padding:40px'>Student not found.</p>"; throw new Error("not found"); }
+const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", uid).single();
+if (profileError || !profile) {
+  dbError(profileError, "loading student", { silent: true });
+  document.body.innerHTML = `<p style='padding:40px'>Student not found.${profileError ? `<br><br><b>Error:</b> ${profileError.message}` : ""}</p>`;
+  throw new Error("not found");
+}
 
 mountAdminShell(profile.full_name || "Student", `<a href="users.html" class="pill pill-ghost">All students</a>`);
 
-const [{ data: stats }, { data: attempts }, { data: topics }] = await Promise.all([
+const [
+  { data: stats, error: statsError },
+  { data: attempts, error: attemptsError },
+  { data: topics, error: topicsError },
+] = await Promise.all([
   supabase.from("user_statistics").select("*").eq("user_id", uid).maybeSingle(),
   supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title)")
     .eq("user_id", uid).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(10),
   supabase.from("topic_performance").select("*").eq("user_id", uid).order("accuracy"),
 ]);
+[statsError, attemptsError, topicsError].forEach((e) => dbError(e, "loading student data"));
 
 document.getElementById("tiles").innerHTML = [
   ["Papers finished", stats?.completed_papers ?? 0],
