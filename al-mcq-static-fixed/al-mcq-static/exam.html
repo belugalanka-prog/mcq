@@ -95,7 +95,12 @@ document.getElementById("paper-title").textContent = attempt.papers?.title ?? "P
 // get_exam_questions() is a SECURITY DEFINER function that returns only
 // id/question_number/question_image_url/topic — correct_answer never
 // reaches this page. See supabase/schema.sql.
-const { data: questions } = await supabase.rpc("get_exam_questions", { p_attempt_id: attemptId });
+const { data: questions, error: questionsError } = await supabase.rpc("get_exam_questions", { p_attempt_id: attemptId });
+if (questionsError || !questions || !questions.length) {
+  document.body.innerHTML = `<p style="padding:40px">Could not load this paper's questions.<br><br>
+    <b>Error:</b> ${questionsError ? questionsError.message : "This paper has no questions uploaded yet."}</p>`;
+  throw new Error("no questions");
+}
 const { data: savedRows } = await supabase.from("attempt_answers").select("question_id,selected_answer").eq("attempt_id", attemptId);
 
 const answers = {};
