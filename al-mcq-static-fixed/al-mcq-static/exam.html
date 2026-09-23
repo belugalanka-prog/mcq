@@ -175,7 +175,8 @@ function renderOptions() {
       if (c === reveal.correct) cls += " correct";
       else if (selected === c) cls += " wrong";
     }
-    return `<button class="${cls}" data-choice="${c}"><span class="option-key">${c}</span><span class="muted" style="font-size:14px">Option ${c}</span></button>`;
+    const n = CHOICES.indexOf(c) + 1;
+    return `<button class="${cls}" data-choice="${c}"><span class="option-key">${n}</span><span class="muted" style="font-size:14px">Option ${n}</span></button>`;
   }).join("");
   document.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => choose(b.dataset.choice)));
 }
@@ -189,7 +190,7 @@ function renderPracticeArea() {
   } else {
     area.innerHTML = `<div class="card card-pad">
       <p style="font-size:14px;font-weight:500;color:${reveal.is_correct ? "var(--ok)" : "var(--bad)"}">
-        ${reveal.is_correct ? "Correct" : `Correct answer is ${reveal.correct}`}</p>
+        ${reveal.is_correct ? "Correct" : `Correct answer is ${CHOICES.indexOf(reveal.correct) + 1}`}</p>
       ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${reveal.review_text}</p>` : ""}
       ${reveal.review_image_url ? `<img src="${reveal.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
     </div>`;
@@ -234,6 +235,7 @@ document.addEventListener("keydown", (e) => {
   if (!document.getElementById("confirm-modal").classList.contains("hidden")) return;
   const k = e.key.toUpperCase();
   if (CHOICES.includes(k)) choose(k);
+  else if (/^[1-5]$/.test(e.key) && CHOICES[Number(e.key) - 1]) choose(CHOICES[Number(e.key) - 1]);
   if (e.key === "ArrowRight") go(index + 1);
   if (e.key === "ArrowLeft") go(index - 1);
 });
