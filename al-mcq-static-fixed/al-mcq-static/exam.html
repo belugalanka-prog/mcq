@@ -111,18 +111,20 @@
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { CHOICES, clock, qs } from "./js/format.js";
+import { dbError, toast } from "./js/db.js";
 
 const attemptId = qs("attempt");
 const session = await requireUser();
 if (!session) throw new Error("redirecting");
 
-const { data: attempt } = await supabase
+const { data: attempt, error: attemptError } = await supabase
   .from("attempts")
   .select("id,user_id,paper_id,mode,expires_at,completed_at,paused_at,papers(title)")
   .eq("id", attemptId).single();
 
-if (!attempt || attempt.user_id !== session.user.id) {
-  document.body.innerHTML = "<p style='padding:40px'>Attempt not found.</p>";
+if (attemptError || !attempt || attempt.user_id !== session.user.id) {
+  dbError(attemptError, "loading attempt", { silent: true });
+  document.body.innerHTML = `<p style='padding:40px'>Attempt not found.${attemptError ? `<br><br><b>Error:</b> ${attemptError.message}` : ""}</p>`;
   throw new Error("not found");
 }
 if (attempt.completed_at) { location.href = `results.html?attempt=${attemptId}`; throw new Error("done"); }
@@ -138,7 +140,8 @@ if (questionsError || !questions || !questions.length) {
     <b>Error:</b> ${questionsError ? questionsError.message : "This paper has no questions uploaded yet."}</p>`;
   throw new Error("no questions");
 }
-const { data: savedRows } = await supabase.from("attempt_answers").select("question_id,selected_answer").eq("attempt_id", attemptId);
+const { data: savedRows, error: savedRowsError } = await supabase.from("attempt_answers").select("question_id,selected_answer").eq("attempt_id", attemptId);
+dbError(savedRowsError, "loading your saved answers");
 
 const answers = {};
 (savedRows || []).forEach(r => { if (r.selected_answer) answers[r.question_id] = r.selected_answer; });
@@ -197,7 +200,7 @@ async function choose(choice) {
 async function revealAnswer() {
   if (paused) return;
   const { data, error } = await supabase.rpc("reveal_answer", { p_attempt_id: attemptId, p_question_id: question().id });
-  if (error) return;
+  if (dbError(error, "checking answer")) return;
   reveal = Array.isArray(data) ? data[0] : data;
   renderOptions();
   renderPracticeArea();
@@ -286,7 +289,7 @@ document.getElementById("pause-btn").addEventListener("click", async () => {
   btn.disabled = true;
   if (!paused) {
     const { error } = await supabase.rpc("pause_attempt", { p_attempt_id: attemptId });
-    if (!error) {
+    if (!dbError(error, "pausing")) {
       paused = true;
       document.getElementById("pause-overlay").classList.remove("hidden");
       btn.textContent = "Paused";
@@ -298,7 +301,7 @@ document.getElementById("resume-btn").addEventListener("click", async () => {
   const btn = document.getElementById("resume-btn");
   btn.disabled = true; btn.textContent = "Resuming…";
   const { data, error } = await supabase.rpc("resume_attempt", { p_attempt_id: attemptId });
-  if (!error) {
+  if (!dbError(error, "resuming")) {
     const row = Array.isArray(data) ? data[0] : data;
     attempt.expires_at = row.expires_at;
     paused = false;
