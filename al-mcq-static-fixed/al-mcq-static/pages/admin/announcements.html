@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Announcements — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1000px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="card card-pad">
+    <div class="card-head"><h2>New announcement</h2></div>
+    <form id="new-form" style="display:flex;flex-direction:column;gap:12px">
+      <input class="field" name="title" placeholder="Title, e.g. Paper 05 is now up" required>
+      <textarea class="field" name="body" rows="3" placeholder="Optional details"></textarea>
+      <button class="pill pill-brand" style="justify-content:center">Post</button>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-pad" style="padding-bottom:0"><div class="card-head"><h2>All announcements</h2></div></div>
+    <div id="list"></div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { esc } from "../../js/format.js";
+
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+mountAdminShell("Announcements");
+
+document.getElementById("new-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const title = fd.get("title")?.toString().trim();
+  if (!title) return;
+  await supabase.from("announcements").insert({
+    title, body: fd.get("body")?.toString().trim() || null, created_by: session.user.id,
+  });
+  e.target.reset();
+  load();
+});
+
+async function load() {
+  const { data: rows } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+  const listEl = document.getElementById("list");
+  if (!rows?.length) { listEl.innerHTML = `<p class="card-pad muted" style="font-size:14px">Nothing posted yet.</p>`; return; }
+  listEl.innerHTML = rows.map(r => `
+    <div class="row" data-id="${r.id}" style="padding:16px 24px;gap:16px;border-top:1px solid var(--hairline);align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <p style="font-size:14px;font-weight:500">${esc(r.title)}</p>
+        ${r.body ? `<p class="muted" style="margin-top:4px;font-size:13px;white-space:pre-wrap">${esc(r.body)}</p>` : ""}
+        <p class="muted" style="margin-top:6px;font-size:12px">${new Date(r.created_at).toLocaleString()}</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+        <button class="pill ${r.is_active ? "pill-soft" : "pill-ghost"}" data-toggle style="justify-content:center">${r.is_active ? "Active" : "Hidden"}</button>
+        <button class="pill pill-ghost" data-delete style="justify-content:center;color:var(--bad)">Delete</button>
+      </div>
+    </div>`).join("");
+
+  listEl.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.closest("[data-id]").dataset.id;
+    const row = rows.find(r => r.id === id);
+    await supabase.from("announcements").update({ is_active: !row.is_active }).eq("id", id);
+    load();
+  }));
+  listEl.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.closest("[data-id]").dataset.id;
+    if (!confirm("Delete this announcement?")) return;
+    await supabase.from("announcements").delete().eq("id", id);
+    load();
+  }));
+}
+load();
+</script>
+</body>
+</html>
