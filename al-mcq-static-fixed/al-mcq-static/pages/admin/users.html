@@ -20,14 +20,16 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc } from "../../js/format.js";
+import { dbError } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
 mountAdminShell("Students");
 
-const { data: users } = await supabase.from("profiles")
+const { data: users, error } = await supabase.from("profiles")
   .select("id,full_name,role,created_at,user_statistics(completed_papers,accuracy,total_points,current_streak)")
   .order("created_at",{ascending:false}).limit(100);
+dbError(error, "loading students");
 
 document.getElementById("list").innerHTML = users?.length ? `
   <div class="row" style="padding:12px 24px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--hairline)">
