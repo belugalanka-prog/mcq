@@ -322,11 +322,11 @@ begin
   if v_paused is null then
     return query select a.expires_at from attempts a where a.id = p_attempt_id; return;
   end if;
-  update attempts set
-    expires_at = expires_at + (now() - v_paused),
-    total_paused_seconds = total_paused_seconds + extract(epoch from (now() - v_paused))::int,
+  update attempts a set
+    expires_at = a.expires_at + (now() - v_paused),
+    total_paused_seconds = a.total_paused_seconds + extract(epoch from (now() - v_paused))::int,
     paused_at = null
-  where id = p_attempt_id;
+  where a.id = p_attempt_id;
   return query select a.expires_at from attempts a where a.id = p_attempt_id;
 end;
 $$;
