@@ -79,11 +79,13 @@ import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { clock, esc, titleCase } from "./js/format.js";
+import { dbError } from "./js/db.js";
 
 mountRail();
 
-const { data: announcements } = await supabase.from("announcements")
+const { data: announcements, error: announcementsError } = await supabase.from("announcements")
   .select("title,body").eq("is_active", true).order("created_at", { ascending: false }).limit(3);
+dbError(announcementsError, "loading announcements", { silent: true });
 document.getElementById("announcements").innerHTML = (announcements ?? []).map(a => `
   <div class="card card-pad" style="background:var(--brand-soft);border:none">
     <p style="font-size:14px;font-weight:600;color:var(--brand)">${esc(a.title)}</p>
@@ -111,7 +113,12 @@ if (session) {
       <div><p style="font-size:15px;font-weight:500">${title}</p><p class="muted" style="margin-top:4px;font-size:13px">${note}</p></div>
     </a>`).join("");
 
-  const [{ data: stats }, { data: attempts }, { data: running }, { data: topics }] = await Promise.all([
+  const [
+    { data: stats, error: statsError },
+    { data: attempts, error: attemptsError },
+    { data: running, error: runningError },
+    { data: topics, error: topicsError },
+  ] = await Promise.all([
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
       .eq("user_id", user.id).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(4),
@@ -119,6 +126,7 @@ if (session) {
       .eq("user_id", user.id).is("completed_at",null).gt("expires_at", new Date().toISOString()).maybeSingle(),
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
   ]);
+  [statsError, attemptsError, runningError, topicsError].forEach((e) => dbError(e, "loading your dashboard"));
 
   document.getElementById("run-stats").innerHTML = `
     <div><p class="num" style="font-size:24px;font-weight:600">${stats?.completed_papers ?? 0}</p><p class="muted" style="font-size:13px">Papers done</p></div>
@@ -163,8 +171,9 @@ if (session) {
     </a>`).join("") : `<p class="muted" style="font-size:14px">No attempts yet. Your first paper will show up here with a full breakdown.</p>`;
 
   async function loadRequests() {
-    const { data: reqs } = await supabase.from("paper_requests")
+    const { data: reqs, error: reqsError } = await supabase.from("paper_requests")
       .select("subject,note,status,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6);
+    dbError(reqsError, "loading your requests");
     const STATUS_COLOR = { open: "var(--muted)", fulfilled: "var(--ok)", declined: "var(--bad)" };
     document.getElementById("my-requests").innerHTML = reqs?.length ? reqs.map(r => `
       <div style="border-top:1px solid var(--hairline);padding:12px 0">
@@ -189,7 +198,7 @@ if (session) {
       user_id: user.id, subject: fd.get("subject"), note,
     });
     btn.disabled = false;
-    if (error) { msg.style.color = "var(--bad)"; msg.textContent = "Could not send that. Try again."; return; }
+    if (error) { dbError(error, "sending request", { silent: true }); msg.style.color = "var(--bad)"; msg.textContent = "Could not send that. Try again."; return; }
     msg.style.color = "var(--ok)";
     msg.textContent = "Sent — thanks!";
     e.target.reset();
