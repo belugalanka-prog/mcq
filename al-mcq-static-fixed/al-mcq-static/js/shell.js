@@ -11,7 +11,24 @@ const ICONS = {
   sun: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
   moon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5"/></svg>',
   search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
 };
+
+/**
+ * Goes back to wherever the visitor actually came from, but never off the
+ * site entirely: if the browser's referrer isn't this app (a bookmark, a
+ * shared link, a new tab), history.back() would land them somewhere
+ * outside the app, so we send them to `fallback` instead.
+ */
+export function goBack(fallback) {
+  try {
+    if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+      history.back();
+      return;
+    }
+  } catch {}
+  location.href = fallback;
+}
 
 const NAV = [
   ["dashboard.html", "Dashboard", "grid"],
@@ -42,13 +59,19 @@ export function mountRail() {
   document.body.appendChild(mobile);
 }
 
-/** Renders the top bar into #topbar. tabs: [{href,label}], action?: {href,label} */
-export function mountTopbar({ tabs, action, search = true }) {
+/**
+ * Renders the top bar into #topbar. tabs: [{href,label}], action?: {href,label}
+ * back: false hides the back button (used on the dashboard, which is home);
+ * otherwise it goes to whatever page the visitor actually came from, or to
+ * backFallback (default dashboard.html) if that isn't part of this app.
+ */
+export function mountTopbar({ tabs, action, search = true, back = true, backFallback = "dashboard.html" }) {
   const el = document.getElementById("topbar");
   if (!el) return;
 
   el.className = "topbar";
   el.innerHTML = `
+    ${back ? `<button type="button" id="topbar-back" class="back-btn" aria-label="Back" title="Back">${ICONS.back}</button>` : ""}
     <nav class="row" style="gap:4px">
       ${tabs.map((t, i) => `<a href="${t.href}" class="pill ${i === 0 ? "pill-soft" : "pill-ghost"}">${t.label}</a>`).join("")}
     </nav>
@@ -63,6 +86,7 @@ export function mountTopbar({ tabs, action, search = true }) {
   `;
   mountThemeToggle();
   if (search) mountSearch();
+  if (back) document.getElementById("topbar-back")?.addEventListener("click", () => goBack(backFallback));
 }
 
 /**
