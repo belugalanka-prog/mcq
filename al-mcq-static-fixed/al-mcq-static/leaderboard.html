@@ -21,6 +21,7 @@ import { getSession } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar } from "./js/shell.js";
 import { esc, qs } from "./js/format.js";
+import { dbError } from "./js/db.js";
 
 const board = qs("board", "all_time");
 const session = await getSession();
@@ -50,21 +51,24 @@ function publicName(p, mode) {
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length-1][0]}.` : parts[0];
 }
 
-const { data: settings } = await supabase.from("app_settings").select("key,value");
+const { data: settings, error: settingsError } = await supabase.from("app_settings").select("key,value");
+dbError(settingsError, "loading leaderboard settings", { silent: true });
 const nameMode = settings?.find(s => s.key === "leaderboard_name_mode")?.value || "first_initial";
 const minPapers = Number(settings?.find(s => s.key === "accuracy_board_min_papers")?.value ?? 5);
 document.getElementById("sub").textContent = `Points come from correct answers and completed papers. The accuracy board needs at least ${minPapers} finished papers, so volume alone will not carry you up it.`;
 
 let rows = [];
 if (board === "accuracy") {
-  const { data } = await supabase.from("user_statistics")
+  const { data, error } = await supabase.from("user_statistics")
     .select("user_id,accuracy,completed_papers,total_points,profiles(full_name,display_name,hide_from_leaderboard)")
     .gte("completed_papers", minPapers).order("accuracy",{ascending:false}).limit(50);
+  dbError(error, "loading leaderboard");
   rows = (data||[]).map(r => ({ ...r, points: r.total_points }));
 } else {
-  const { data } = await supabase.from("leaderboard_entries")
+  const { data, error } = await supabase.from("leaderboard_entries")
     .select("user_id,points,accuracy,profiles(full_name,display_name,hide_from_leaderboard)")
     .eq("board_type", board).eq("period_key", periodKey(board)).order("points",{ascending:false}).limit(50);
+  dbError(error, "loading leaderboard");
   rows = data || [];
 }
 rows = rows.filter(r => !r.profiles?.hide_from_leaderboard);
