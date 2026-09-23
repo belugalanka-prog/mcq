@@ -49,6 +49,7 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc } from "../../js/format.js";
+import { dbError, toast } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
@@ -62,7 +63,8 @@ const PLACEMENTS = [
 ];
 
 async function refresh() {
-  const { data: ads } = await supabase.from("advertisements").select("*").order("priority",{ascending:false});
+  const { data: ads, error } = await supabase.from("advertisements").select("*").order("priority",{ascending:false});
+  if (dbError(error, "loading ads")) return;
 
   document.getElementById("placements").innerHTML = PLACEMENTS.map(([key, where]) => {
     const live = ads?.filter(a => a.placement === key && a.is_active).length ?? 0;
@@ -82,7 +84,8 @@ async function refresh() {
     </div>`).join("") : `<p class="card-pad muted" style="font-size:14px">No advertisements yet. Add one below.</p>`;
 
   document.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", async () => {
-    await supabase.from("advertisements").update({ is_active: btn.dataset.state !== "true" }).eq("id", btn.dataset.toggle);
+    const { error: toggleError } = await supabase.from("advertisements").update({ is_active: btn.dataset.state !== "true" }).eq("id", btn.dataset.toggle);
+    if (dbError(toggleError, "updating ad")) return;
     refresh();
   }));
 }
@@ -91,10 +94,12 @@ refresh();
 document.getElementById("new-ad").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
-  await supabase.from("advertisements").insert({
+  const { error } = await supabase.from("advertisements").insert({
     title: fd.get("title") || null, image_url: fd.get("image_url"),
     link_url: fd.get("link_url") || null, placement: fd.get("placement"), is_active: true,
   });
+  if (dbError(error, "adding advertisement")) return;
+  toast("Advertisement added.", "success");
   e.target.reset();
   refresh();
 });
