@@ -20,6 +20,7 @@ import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
 import { esc, qs } from "../../js/format.js";
+import { dbError } from "../../js/db.js";
 
 const session = await requireStaff();
 if (!session) throw new Error("redirecting");
@@ -30,9 +31,10 @@ document.getElementById("tabs").innerHTML = [["open","Open"],["resolved","Resolv
   .map(([k,l]) => `<a href="reports.html?status=${k}" class="pill ${k===status?"pill-brand":"pill-ghost"}">${l}</a>`).join("");
 
 async function load() {
-  const { data: reports } = await supabase.from("question_reports")
+  const { data: reports, error } = await supabase.from("question_reports")
     .select("id,reason,status,created_at,questions(question_number,question_image_url,paper_id,papers(title)),profiles(full_name)")
     .eq("status", status).order("created_at", { ascending: false });
+  if (dbError(error, "loading reports")) return;
 
   const listEl = document.getElementById("list");
   if (!reports?.length) {
@@ -65,9 +67,10 @@ async function load() {
       const row = btn.closest("[data-id]");
       const newStatus = status === "open" ? "resolved" : "open";
       btn.disabled = true;
-      await supabase.from("question_reports").update({
+      const { error } = await supabase.from("question_reports").update({
         status: newStatus, resolved_at: newStatus === "resolved" ? new Date().toISOString() : null,
       }).eq("id", row.dataset.id);
+      if (dbError(error, "updating report")) { btn.disabled = false; return; }
       row.remove();
       if (!document.querySelector("[data-id]")) load();
     });
