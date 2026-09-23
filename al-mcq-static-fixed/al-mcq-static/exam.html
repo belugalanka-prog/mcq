@@ -46,7 +46,9 @@
 <footer class="exam">
   <div class="row" style="max-width:860px;margin:0 auto">
     <button id="prev" class="pill pill-ghost">Previous</button>
-    <button id="nav-open" class="pill pill-soft"></button>
+    <button id="nav-open" class="pill pill-soft" style="gap:6px">
+      <span aria-hidden="true">☰</span><span>Question list</span><span id="nav-open-count" class="muted num"></span>
+    </button>
     <button id="next" class="pill pill-brand" style="margin-left:auto">Next</button>
   </div>
 </footer>
@@ -159,7 +161,7 @@ async function revealAnswer() {
 
 function renderProgress() {
   document.getElementById("progress").textContent = `${index + 1} / ${questions.length}`;
-  document.getElementById("nav-open").textContent = `${answeredCount()}/${questions.length}`;
+  document.getElementById("nav-open-count").textContent = `(${answeredCount()}/${questions.length})`;
 }
 
 function renderQuestion() {
