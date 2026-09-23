@@ -92,7 +92,7 @@ document.getElementById("announcements").innerHTML = (announcements ?? []).map(a
     ${a.body ? `<p class="muted" style="margin-top:4px;font-size:13px;white-space:pre-wrap">${esc(a.body)}</p>` : ""}
   </div>`).join("");
 
-mountTopbar({ tabs: [{href:"dashboard.html",label:"Dashboard"},{href:"subject.html?subject=physics",label:"Physics"},{href:"subject.html?subject=chemistry",label:"Chemistry"}], action:{href:"subject.html?subject=physics",label:"Start a paper"} });
+mountTopbar({ tabs: [{href:"dashboard.html",label:"Dashboard"},{href:"subject.html?subject=physics",label:"Physics"},{href:"subject.html?subject=chemistry",label:"Chemistry"}], action:{href:"subject.html",label:"Browse all papers"} });
 mountAdSlot(document.getElementById("ad-dashboard"), "DASHBOARD_PROMO");
 
 const session = await requireUser();
@@ -105,13 +105,21 @@ if (session) {
     ["past","Past papers","Every A/L paper, timed","#EFEDFD"],
     ["topic","Topic papers","Drill one unit at a time","#E7F7EF"],
     ["model","Model papers","Written for this year's syllabus","#FFF1E8"],
+    ["teacher","Teacher papers","Set by your own teachers","#EAF3FF"],
+    ["special","Special MCQs","Hand-picked practice questions","#FDEFF3"],
   ].map(([type,title,note,tint]) => `
     <a href="subject.html?subject=physics&type=${type}" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between">
       <div style="height:80px;border-radius:16px;background:${tint};display:grid;place-items:center;margin-bottom:24px">
         <span class="display" style="font-size:22px;color:var(--brand)">${title.split(" ")[0]}</span>
       </div>
       <div><p style="font-size:15px;font-weight:500">${title}</p><p class="muted" style="margin-top:4px;font-size:13px">${note}</p></div>
-    </a>`).join("");
+    </a>`).join("") + `
+    <a href="subject.html" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between;background:var(--brand-soft);border:none">
+      <div style="height:80px;border-radius:16px;background:#fff;display:grid;place-items:center;margin-bottom:24px">
+        <span class="display" style="font-size:22px;color:var(--brand)">All</span>
+      </div>
+      <div><p style="font-size:15px;font-weight:500;color:var(--brand)">Browse everything</p><p class="muted" style="margin-top:4px;font-size:13px">Search and filter every paper, both subjects</p></div>
+    </a>`;
 
   const [
     { data: stats, error: statsError },
