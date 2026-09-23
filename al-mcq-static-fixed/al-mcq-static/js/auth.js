@@ -1,10 +1,13 @@
 import { supabase } from "./supabase.js";
+import { dbError } from "./db.js";
 
 /** Returns { user, profile } or null. Never throws. */
 export async function getSession() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  dbError(userError, "checking sign-in", { silent: true });
   if (!user) return null;
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  dbError(profileError, "loading your profile");
   return { user, profile };
 }
 
@@ -31,13 +34,15 @@ export async function requireStaff() {
 
 export async function signInWithGoogle() {
   const base = (window.APP_CONFIG.SITE_URL || location.origin).replace(/\/+$/, "");
-  await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${base}/dashboard.html` },
   });
+  dbError(error, "signing in");
 }
 
 export async function signOut() {
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  dbError(error, "signing out", { silent: true });
   location.href = "index.html";
 }
