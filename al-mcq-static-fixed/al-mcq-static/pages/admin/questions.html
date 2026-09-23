@@ -123,9 +123,9 @@ async function loadGrid() {
         <span class="chip num" style="width:48px;justify-content:center">${q.question_number}</span>
         <img src="${q.question_image_url}" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
         <div class="row" style="gap:6px" data-choices>
-          ${CHOICES.map(c => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
+          ${CHOICES.map((c, i) => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
             background:${q.correct_answer===c?"var(--brand)":"var(--surface)"};color:${q.correct_answer===c?"#fff":"var(--muted)"};
-            border:1px solid ${q.correct_answer===c?"var(--brand)":"var(--hairline)"}">${c}</button>`).join("")}
+            border:1px solid ${q.correct_answer===c?"var(--brand)":"var(--hairline)"}">${i + 1}</button>`).join("")}
         </div>
         <input class="field" data-topic value="${q.topic ?? ""}" placeholder="Topic" style="min-width:140px;flex:1">
         <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
