@@ -83,7 +83,7 @@ document.getElementById("r-time").textContent = `Finished in ${clock(attempt.tim
 
 // Safe now: the attempt is closed, so correct_answer can be shown.
 const { data: rows, error: rowsError } = await supabase.from("attempt_answers")
-  .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answer,review_text,review_image_url)")
+  .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answers,review_text,review_image_url)")
   .eq("attempt_id", attemptId);
 dbError(rowsError, "loading question breakdown");
 
@@ -120,7 +120,10 @@ document.getElementById("wrong-list").innerHTML = items.filter(r => !r.is_correc
       <img class="qimg" src="${q.question_image_url}" alt="Question ${q.question_number}">
       <div class="row" style="margin-top:16px">
         <span class="chip" style="background:rgba(240,71,108,.1);color:var(--bad)">You chose ${toNum(r.selected_answer) || "nothing"}</span>
-        <span class="chip" style="background:rgba(46,212,122,.12);color:var(--ok)">Answer is ${toNum(q.correct_answer)}</span>
+        <span class="chip" style="background:rgba(46,212,122,.12);color:var(--ok)">${
+          !q.correct_answers?.length ? "No correct answer (voided)"
+          : q.correct_answers.length === 5 ? "Any answer was correct"
+          : `Answer is ${q.correct_answers.map(toNum).join(" or ")}`}</span>
       </div>
       ${(q.review_text || q.review_image_url) ? `<div style="margin-top:16px;border-radius:16px;padding:16px;background:var(--brand-soft)">
         ${q.review_text ? `<p style="white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(q.review_text)}</p>` : ""}
