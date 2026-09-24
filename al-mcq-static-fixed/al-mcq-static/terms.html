@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms & Conditions — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap" style="max-width:760px">
+  <div id="topbar"></div>
+
+  <h1 style="font-size:30px">Terms & Conditions</h1>
+  <p class="muted" style="margin-top:8px;font-size:13px">Last updated: <span id="updated"></span></p>
+
+  <div class="card card-pad legal-body" style="margin-top:24px">
+    <h2>1. Using A/L Master</h2>
+    <p>A/L Master gives you access to past papers, topic papers, model papers, teacher papers and standalone practice MCQs for the G.C.E. Advanced Level Physics and Chemistry syllabuses. By creating an account or using the site you agree to these terms.</p>
+
+    <h2>2. Your account</h2>
+    <p>You sign in with Google. You're responsible for keeping your account secure and for anything that happens through it. Don't share your login, and don't create an account on behalf of someone else without their permission.</p>
+
+    <h2>3. Fair use</h2>
+    <ul>
+      <li>Papers and MCQs are for your own personal practice.</li>
+      <li>Don't copy, redistribute, resell, or scrape the question content or answer keys.</li>
+      <li>Don't try to bypass the exam timer, tamper with scoring, or otherwise manipulate the leaderboard or your statistics.</li>
+      <li>Report problems using the in-app "Report a problem" tool rather than working around a broken question.</li>
+    </ul>
+
+    <h2>4. Content accuracy</h2>
+    <p>We try to keep questions, answer keys and worked answers accurate, but mistakes can happen — that's what the report tool is for. A/L Master is a practice aid, not a substitute for your own study, textbooks, or your teachers' guidance, and we don't guarantee any particular exam outcome from using it.</p>
+
+    <h2>5. Requests and submissions</h2>
+    <p>If you request a paper or report a question, you're giving us permission to review, act on, and store that submission as described in the Privacy Policy.</p>
+
+    <h2>6. Advertising</h2>
+    <p>Some pages may show advertisements, including through Google AdSense. Ad content is chosen by the advertiser or ad network and isn't reviewed or endorsed by A/L Master.</p>
+
+    <h2>7. Suspension</h2>
+    <p>We may suspend or remove access for accounts that abuse the platform — for example by scraping content, manipulating scores, or harassing other users.</p>
+
+    <h2>8. Changes</h2>
+    <p>We may update these terms from time to time. Continuing to use A/L Master after a change means you accept the updated terms.</p>
+
+    <h2>9. Contact</h2>
+    <p>Questions about these terms can be sent through the "Request a paper" form on your dashboard, or to the contact details published on this site.</p>
+  </div>
+</div>
+
+<script type="module">
+import { mountTopbar, mountRail } from "./js/shell.js";
+mountRail();
+mountTopbar({ search: false, tabs: [{href:"dashboard.html",label:"Dashboard"}] });
+document.getElementById("updated").textContent = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+</script>
+</body>
+</html>
