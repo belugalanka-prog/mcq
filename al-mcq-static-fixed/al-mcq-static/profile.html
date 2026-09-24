@@ -16,12 +16,24 @@
       <div class="row" style="gap:14px">
         <img id="avatar" style="width:56px;height:56px;border-radius:999px;object-fit:cover;background:var(--brand-soft)">
         <div><p id="name" style="font-size:18px;font-weight:600"></p><p class="muted" id="role" style="font-size:13px"></p></div>
+        <button id="edit-open" class="pill pill-ghost" style="margin-left:auto">Edit profile</button>
       </div>
       <div class="grid g3" style="margin-top:24px">
         <div><p class="num" id="p-papers" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Papers</p></div>
         <div><p class="num" id="p-acc" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Accuracy</p></div>
         <div><p class="num" id="p-streak" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Streak</p></div>
       </div>
+
+      <form id="edit-form" class="hidden" style="display:flex;flex-direction:column;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--hairline)">
+        <label class="field-label">Display name<input class="field" name="display_name" placeholder="Shown on the leaderboard"></label>
+        <label class="field-label">Full name<input class="field" name="full_name"></label>
+        <label class="field-label">Avatar URL<input class="field" name="avatar_url" placeholder="https://…"></label>
+        <div class="row" style="margin-top:6px">
+          <button type="submit" class="pill pill-brand">Save changes</button>
+          <button type="button" id="edit-cancel" class="pill pill-ghost">Cancel</button>
+        </div>
+        <p id="edit-msg" class="muted" style="font-size:13px"></p>
+      </form>
     </div>
     <div class="card card-pad">
       <div class="card-head"><h2>Preferences</h2></div>
@@ -32,24 +44,30 @@
       <button id="signout" class="pill pill-ghost" style="margin-top:20px">Sign out</button>
     </div>
   </div>
+  <div id="footer"></div>
 </div>
 <script type="module">
 import { requireUser, signOut } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar } from "./js/shell.js";
+import { mountRail, mountTopbar, mountFooter } from "./js/shell.js";
 import { esc } from "./js/format.js";
 import { dbError, toast } from "./js/db.js";
 
 const session = await requireUser();
 if (!session) throw new Error("redirecting");
-const { user, profile } = session;
+const { user } = session;
+let { profile } = session;
 
 mountRail();
 mountTopbar({ tabs: [{href:"profile.html",label:"Profile"},{href:"dashboard.html",label:"Dashboard"}], search:false });
+mountFooter(document.getElementById("footer"));
 
-document.getElementById("avatar").src = profile?.avatar_url || "https://placehold.co/56x56/EFEDFD/5A4BE1?text=" + (profile?.full_name?.[0] || "S");
-document.getElementById("name").textContent = profile?.full_name || "Student";
-document.getElementById("role").textContent = profile?.role || "student";
+function renderIdentity() {
+  document.getElementById("avatar").src = profile?.avatar_url || "https://placehold.co/56x56/EFEDFD/5A4BE1?text=" + (profile?.full_name?.[0] || "S");
+  document.getElementById("name").textContent = profile?.display_name || profile?.full_name || "Student";
+  document.getElementById("role").textContent = profile?.role || "student";
+}
+renderIdentity();
 document.getElementById("hide-toggle").checked = !!profile?.hide_from_leaderboard;
 
 const { data: stats, error: statsError } = await supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle();
@@ -64,6 +82,38 @@ document.getElementById("hide-toggle").addEventListener("change", async (e) => {
   toast("Saved.", "success");
 });
 document.getElementById("signout").addEventListener("click", signOut);
+
+const editForm = document.getElementById("edit-form");
+document.getElementById("edit-open").addEventListener("click", () => {
+  editForm.display_name.value = profile?.display_name || "";
+  editForm.full_name.value = profile?.full_name || "";
+  editForm.avatar_url.value = profile?.avatar_url || "";
+  document.getElementById("edit-msg").textContent = "";
+  editForm.classList.toggle("hidden");
+});
+document.getElementById("edit-cancel").addEventListener("click", () => editForm.classList.add("hidden"));
+
+editForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(editForm);
+  const updates = {
+    display_name: fd.get("display_name")?.toString().trim() || null,
+    full_name: fd.get("full_name")?.toString().trim() || null,
+    avatar_url: fd.get("avatar_url")?.toString().trim() || null,
+  };
+  const msg = document.getElementById("edit-msg");
+  const btn = editForm.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
+  btn.disabled = false; btn.textContent = "Save changes";
+  if (error) { msg.style.color = "var(--bad)"; msg.textContent = "Could not save that. Try again."; return; }
+  profile = { ...profile, ...updates };
+  renderIdentity();
+  msg.style.color = "var(--ok)";
+  msg.textContent = "Saved.";
+  toast("Profile updated.", "success");
+  setTimeout(() => editForm.classList.add("hidden"), 600);
+});
 </script>
 </body>
 </html>
