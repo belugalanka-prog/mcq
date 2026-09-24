@@ -42,11 +42,13 @@
         <div class="card card-pad"><p style="font-size:15px;font-weight:500">Topic breakdown</p><p class="muted" style="margin-top:6px;font-size:13px">See which units are costing you marks across every attempt.</p></div>
       </div>
     </div>
+    <div id="footer"></div>
   </div>
 
 <script type="module">
 import { getSession, signInWithGoogle } from "./js/auth.js";
-import { mountThemeToggle } from "./js/shell.js";
+import { mountThemeToggle, mountFooter } from "./js/shell.js";
+mountFooter(document.getElementById("footer"));
 
 document.getElementById("theme-toggle").innerHTML = `
   <button data-theme-btn="light">Light</button>
