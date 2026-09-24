@@ -56,7 +56,9 @@ if (paperError || !paper) {
 mountTopbar({ backFallback:`subject.html?subject=${paper.subject}`, tabs: [{href:`subject.html?subject=${paper.subject}`,label:titleCase(paper.subject)},{href:"dashboard.html",label:"Dashboard"}] });
 mountAdSlot(document.getElementById("ad-top"), "PAPER_TOP");
 
-document.getElementById("kind").textContent = titleCase(paper.paper_type);
+const isSpecial = paper.paper_type === "special";
+const noun = isSpecial ? "MCQs" : "paper";
+document.getElementById("kind").textContent = isSpecial ? "Special MCQs" : titleCase(paper.paper_type);
 document.getElementById("title").textContent = paper.title;
 document.getElementById("desc").textContent = paper.description || "";
 document.getElementById("qcount").textContent = paper.total_questions;
@@ -102,14 +104,14 @@ if (!session) {
           <span><span style="display:block;font-size:14px;font-weight:500">Practice mode</span><span class="muted" style="font-size:12.5px">Answer revealed after each question</span></span>
         </button>
       </div>
-      <button id="start" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:16px">Start paper</button>
+      <button id="start" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:16px">Start ${noun}</button>
       <p id="err" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>`;
     startArea.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { mode = b.dataset.mode; render(); }));
     document.getElementById("start").addEventListener("click", start);
   }
   async function start() {
     const btn = document.getElementById("start");
-    btn.disabled = true; btn.textContent = "Opening the paper…";
+    btn.disabled = true; btn.textContent = `Opening the ${noun}…`;
     const { data, error } = await supabase.rpc("start_attempt", { p_paper_id: paper.id, p_mode: mode });
     if (error) {
       document.getElementById("err").textContent = error.message;
