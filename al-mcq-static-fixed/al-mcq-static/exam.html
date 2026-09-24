@@ -227,7 +227,7 @@ function renderOptions() {
   document.getElementById("options").innerHTML = CHOICES.map(c => {
     let cls = "option" + (selected === c ? " selected" : "");
     if (reveal) {
-      if (c === reveal.correct) cls += " correct";
+      if ((reveal.correct || []).includes(c)) cls += " correct";
       else if (selected === c) cls += " wrong";
     }
     const n = CHOICES.indexOf(c) + 1;
@@ -245,7 +245,9 @@ function renderPracticeArea() {
   } else {
     area.innerHTML = `<div class="card card-pad">
       <p style="font-size:14px;font-weight:500;color:${reveal.is_correct ? "var(--ok)" : "var(--bad)"}">
-        ${reveal.is_correct ? "Correct" : `Correct answer is ${CHOICES.indexOf(reveal.correct) + 1}`}</p>
+        ${reveal.is_correct ? "Correct" : (reveal.correct || []).length === 0 ? "This question has no correct answer (voided)."
+          : (reveal.correct || []).length === CHOICES.length ? "Any option was correct here."
+          : `Correct answer is ${reveal.correct.map(c => CHOICES.indexOf(c) + 1).join(" or ")}`}</p>
       ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${reveal.review_text}</p>` : ""}
       ${reveal.review_image_url ? `<img src="${reveal.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
     </div>`;
