@@ -15,12 +15,25 @@
 
   <div class="grid g4" id="tiles"></div>
 
+  <div class="grid g2" style="margin-top:16px;align-items:start">
+    <div class="card card-pad">
+      <div class="card-head"><h2>Attempts, last 14 days</h2></div>
+      <canvas id="chart-attempts" height="180"></canvas>
+    </div>
+    <div class="card card-pad">
+      <div class="card-head"><h2>Papers sat by subject</h2></div>
+      <canvas id="chart-subject" height="180"></canvas>
+    </div>
+  </div>
+
   <div class="card card-pad" style="margin-top:16px">
     <div class="card-head"><h2>Questions students are getting wrong</h2></div>
     <p class="muted" style="font-size:13px;margin-bottom:16px">Ranked by how few students answer correctly, once at least five have tried. A very low score often means the concept needs reteaching — or that the answer key is wrong.</p>
+    <canvas id="chart-hardest" height="220" style="margin-bottom:16px"></canvas>
     <div id="hardest"></div>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script type="module">
 import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
@@ -62,6 +75,65 @@ document.getElementById("hardest").innerHTML = hardest?.length ? hardest.map(q =
     <div style="flex:1"><p style="font-size:14px">${esc(q.paper_title)}</p><p class="muted" style="font-size:12px">${esc(q.topic||"No topic tagged")} · ${q.attempts} attempts</p></div>
     <p class="num" style="font-size:15px;font-weight:600;color:${q.correct_pct<40?"var(--bad)":"var(--muted)"}">${q.correct_pct ?? 0}%</p>
   </div>`).join("") : `<p class="muted" style="font-size:14px">Not enough attempts yet. This fills in once students start sitting papers.</p>`;
+
+/* ---------- charts ---------- */
+const css = getComputedStyle(document.documentElement);
+const cVar = (name, fallback) => (css.getPropertyValue(name) || fallback).trim();
+const brand = cVar("--brand", "#5b5bf0"), bad = cVar("--bad", "#f0476c"), ok = cVar("--ok", "#2ed47a"), muted = cVar("--muted", "#8a8fa3"), hairline = cVar("--hairline", "#e6e8f0");
+Chart.defaults.color = muted;
+Chart.defaults.font.family = "Inter, sans-serif";
+Chart.defaults.borderColor = hairline;
+
+if (hardest?.length) {
+  new Chart(document.getElementById("chart-hardest"), {
+    type: "bar",
+    data: {
+      labels: hardest.map(q => `Q${q.question_number}`),
+      datasets: [{ label: "% answered correctly", data: hardest.map(q => q.correct_pct ?? 0),
+        backgroundColor: hardest.map(q => (q.correct_pct ?? 0) < 40 ? bad : brand), borderRadius: 6 }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, max: 100 } } },
+  });
+} else {
+  document.getElementById("chart-hardest").replaceWith(Object.assign(document.createElement("p"), { className: "muted", style: "font-size:13px", textContent: "Chart fills in once there are enough attempts." }));
+}
+
+const since = new Date(Date.now() - 13 * 86400000);
+const { data: recentAttempts, error: recentError } = await supabase.from("attempts")
+  .select("completed_at, papers(subject)").not("completed_at", "is", null).gte("completed_at", since.toISOString());
+dbError(recentError, "loading recent attempts", { silent: true });
+
+const days = Array.from({ length: 14 }, (_, i) => {
+  const d = new Date(since.getTime() + i * 86400000);
+  return d.toISOString().slice(0, 10);
+});
+const byDay = Object.fromEntries(days.map(d => [d, 0]));
+const bySubject = { physics: 0, chemistry: 0 };
+(recentAttempts ?? []).forEach(a => {
+  const d = a.completed_at?.slice(0, 10);
+  if (d in byDay) byDay[d]++;
+  if (a.papers?.subject in bySubject) bySubject[a.papers.subject]++;
+});
+
+new Chart(document.getElementById("chart-attempts"), {
+  type: "line",
+  data: {
+    labels: days.map(d => d.slice(5)),
+    datasets: [{ label: "Attempts completed", data: days.map(d => byDay[d]),
+      borderColor: brand, backgroundColor: brand + "33", fill: true, tension: 0.3, pointRadius: 2 }],
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+});
+
+new Chart(document.getElementById("chart-subject"), {
+  type: "doughnut",
+  data: {
+    labels: ["Physics", "Chemistry"],
+    datasets: [{ data: [bySubject.physics, bySubject.chemistry], backgroundColor: [brand, ok] }],
+  },
+  options: { responsive: true, plugins: { legend: { position: "bottom" } } },
+});
 </script>
 </body>
 </html>
