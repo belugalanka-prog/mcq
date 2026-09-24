@@ -13,6 +13,7 @@
   <div id="topbar"></div>
   <div id="announcements" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
 
+  <p class="section-label">Overview</p>
   <div class="grid" style="grid-template-columns:1.35fr 2fr">
     <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:center">
       <h1 id="hero" style="font-size:34px;line-height:1.14">Hi!</h1>
@@ -23,7 +24,8 @@
     <div class="grid g3" id="tiles"></div>
   </div>
 
-  <div class="grid g3" style="margin-top:16px">
+  <p class="section-label">Your progress</p>
+  <div class="grid g3">
     <div class="card card-pad">
       <div class="card-head"><h2>Continue where you stopped</h2></div>
       <div id="resume"><p class="muted" style="font-size:14px">Checking…</p></div>
@@ -38,7 +40,8 @@
     </div>
   </div>
 
-  <div class="grid" style="grid-template-columns:2fr 1fr;margin-top:16px">
+  <p class="section-label">Activity</p>
+  <div class="grid" style="grid-template-columns:2fr 1fr">
     <div class="card card-pad">
       <div class="card-head"><h2>Recent attempts</h2><a href="results-index.html" style="font-size:13px;color:var(--brand)">See all</a></div>
       <div id="attempts"><p class="muted" style="font-size:14px">Loading…</p></div>
@@ -53,7 +56,8 @@
     </div>
   </div>
 
-  <div class="grid" style="grid-template-columns:1.4fr 1fr;margin-top:16px">
+  <p class="section-label">Requests</p>
+  <div class="grid" style="grid-template-columns:1.4fr 1fr">
     <div class="card card-pad">
       <div class="card-head"><h2>Request a paper</h2></div>
       <p class="muted" style="font-size:13px;margin-bottom:12px">Don't see the paper you need? Ask for it here.</p>
@@ -72,16 +76,18 @@
       <div id="my-requests"><p class="muted" style="font-size:14px">Loading…</p></div>
     </div>
   </div>
+  <div id="footer"></div>
 </div>
 
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { clock, esc, titleCase } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 mountRail();
+mountFooter(document.getElementById("footer"));
 
 const { data: announcements, error: announcementsError } = await supabase.from("announcements")
   .select("title,body").eq("is_active", true).order("created_at", { ascending: false }).limit(3);
