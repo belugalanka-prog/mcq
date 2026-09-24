@@ -190,6 +190,7 @@ async function choose(choice) {
   if (reveal || paused) return;
   answers[question().id] = choice;
   renderOptions();
+  renderPracticeArea(); // re-enable "Check this answer" now that an option is selected
   const { error } = await supabase.rpc("save_answer", {
     p_attempt_id: attemptId, p_question_id: question().id, p_selected: choice,
     p_time_spent: Math.round((Date.now() - enteredAt) / 1000),
