@@ -154,6 +154,18 @@ export function mountThemeToggle() {
   });
 }
 
+/** Appends the legal footer (Terms, Privacy) to the end of `el` (defaults to .wrap). */
+export function mountFooter(el = document.querySelector(".wrap")) {
+  if (!el) return;
+  const footer = document.createElement("div");
+  footer.className = "site-footer";
+  footer.innerHTML = `
+    <a href="terms.html">Terms & Conditions</a>
+    <a href="privacy.html">Privacy Policy</a>
+    <span class="muted" style="font-size:13px">© ${new Date().getFullYear()} A/L Master</span>`;
+  el.appendChild(footer);
+}
+
 /** Applies the stored theme before paint, to avoid a flash. Call in <head>. */
 export function applyStoredTheme() {
   try {
