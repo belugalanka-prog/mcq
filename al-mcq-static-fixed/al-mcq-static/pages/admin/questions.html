@@ -27,7 +27,7 @@
       </div>
       <div class="card card-pad">
         <div class="card-head"><h2>Paste answer key</h2></div>
-        <p class="muted" style="font-size:13px;margin-bottom:10px">Paste the whole key at once, in question order: <code>ABCDE…</code>, <code>A B C D…</code>, digits <code>1 to 5</code> (1=A), or numbered like <code>1-C 2-A 3-E</code>.</p>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">Paste the whole key at once, in question order: <code>ABCDE…</code>, <code>A B C D…</code>, digits <code>1 to 5</code> (1=A), or numbered like <code>1-C 2-A 3-E</code>. Use <code>X</code> for "all of the above" and <code>0</code> for "none of the above" (e.g. <code>1-C 2-X 3-0</code>).</p>
         <textarea id="key-input" class="field" rows="3" placeholder="CADBEACDBE…"></textarea>
         <button id="key-apply" class="pill pill-brand" style="margin-top:10px;justify-content:center;width:100%">Apply key</button>
         <p id="key-msg" class="muted" style="margin-top:10px;font-size:13px"></p>
@@ -42,7 +42,7 @@
 
     <div class="card card-pad">
       <div class="card-head"><h2>Answer key</h2></div>
-      <p class="muted" style="font-size:13px;margin-bottom:16px">Click an option, or press A to E on your keyboard to set the answer and drop to the next question. Each row saves on its own.</p>
+      <p class="muted" style="font-size:13px;margin-bottom:16px">Click one or more options (a question can have more than one correct choice), or press A to E on your keyboard to set a single answer and drop to the next question. Use "All" when every choice is correct, or "None" when the question has no correct answer (voided). Each row saves on its own.</p>
       <div id="grid"></div>
     </div>
   </div>
@@ -105,17 +105,21 @@ document.getElementById("file-input").addEventListener("change", e => e.target.f
 
 async function loadGrid() {
   const { data: questions, error: questionsError } = await supabase.from("questions")
-    .select("id,question_number,question_image_url,correct_answer,topic,review_text,review_image_url")
+    .select("id,question_number,question_image_url,correct_answers,topic,review_text,review_image_url")
     .eq("paper_id", paper.id).order("question_number");
   dbError(questionsError, "loading questions");
 
   const entered = questions?.length ?? 0;
   const missingReview = questions?.filter(q => !q.review_text && !q.review_image_url).length ?? 0;
-  document.getElementById("progress-bar").style.width = `${Math.min(100, (entered/paper.total_questions)*100)}%`;
-  document.getElementById("progress-text").textContent = `${entered} of ${paper.total_questions} questions uploaded`;
-  document.getElementById("review-note").textContent = missingReview === 0
-    ? "Every question has a worked answer."
-    : `${missingReview} still have no worked answer. Students can still sit the paper, but they will not see an explanation for those.`;
+  const missingKey = questions?.filter(q => !q.correct_answers?.length).length ?? 0;
+  const total = paper.total_questions || entered || 1;
+  document.getElementById("progress-bar").style.width = `${Math.min(100, (entered/total)*100)}%`;
+  document.getElementById("progress-text").textContent = `${entered} of ${paper.total_questions || entered} questions uploaded`;
+  document.getElementById("review-note").textContent =
+    (missingKey ? `${missingKey} question(s) have no answer set yet — students can't be graded on those until you set one. ` : "") +
+    (missingReview === 0
+      ? "Every question has a worked answer."
+      : `${missingReview} still have no worked answer. Students can still sit the paper, but they will not see an explanation for those.`);
 
   const gridEl = document.getElementById("grid");
   if (!questions?.length) {
@@ -123,26 +127,47 @@ async function loadGrid() {
     return;
   }
 
-  gridEl.innerHTML = questions.map(q => `
+  const paintChoice = (btn, on) => {
+    btn.style.background = on ? "var(--brand)" : "var(--surface)";
+    btn.style.color = on ? "#fff" : "var(--muted)";
+    btn.style.borderColor = on ? "var(--brand)" : "var(--hairline)";
+  };
+  const paintSpecial = (btn, on, color) => {
+    btn.style.background = on ? color : "var(--surface)";
+    btn.style.color = on ? "#fff" : "var(--muted)";
+    btn.style.borderColor = on ? color : "var(--hairline)";
+  };
+
+  gridEl.innerHTML = questions.map(q => {
+    const ans = q.correct_answers ?? [];
+    const isAll = ans.length === CHOICES.length;
+    const isNone = ans.length === 0;
+    return `
     <div id="row-${q.question_number}" data-qid="${q.id}" data-n="${q.question_number}" style="border-top:1px solid var(--hairline);padding:14px 0">
       <div class="row">
         <span class="chip num" style="width:48px;justify-content:center">${q.question_number}</span>
         <img src="${q.question_image_url}" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
         <div class="row" style="gap:6px" data-choices>
           ${CHOICES.map((c, i) => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
-            background:${q.correct_answer===c?"var(--brand)":"var(--surface)"};color:${q.correct_answer===c?"#fff":"var(--muted)"};
-            border:1px solid ${q.correct_answer===c?"var(--brand)":"var(--hairline)"}">${i + 1}</button>`).join("")}
+            background:${ans.includes(c)?"var(--brand)":"var(--surface)"};color:${ans.includes(c)?"#fff":"var(--muted)"};
+            border:1px solid ${ans.includes(c)?"var(--brand)":"var(--hairline)"}">${i + 1}</button>`).join("")}
+          <button class="num" data-all style="width:44px;height:36px;border-radius:11px;font-size:11px;font-weight:600;
+            background:${isAll?"var(--ok)":"var(--surface)"};color:${isAll?"#fff":"var(--muted)"};border:1px solid ${isAll?"var(--ok)":"var(--hairline)"}">All</button>
+          <button class="num" data-none style="width:52px;height:36px;border-radius:11px;font-size:11px;font-weight:600;
+            background:${isNone?"var(--bad)":"var(--surface)"};color:${isNone?"#fff":"var(--muted)"};border:1px solid ${isNone?"var(--bad)":"var(--hairline)"}">None</button>
         </div>
         <input class="field" data-topic value="${q.topic ?? ""}" placeholder="Topic" style="min-width:140px;flex:1">
         <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
         <span data-saved style="width:20px;color:var(--ok);opacity:0">✓</span>
       </div>
       <textarea class="field hidden" data-review rows="4" style="margin-top:12px" placeholder="Worked answer shown after submission. Plain text or LaTeX, e.g. a = (v - u) / t">${q.review_text ?? ""}</textarea>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   gridEl.querySelectorAll("[data-qid]").forEach(row => {
     const qid = row.dataset.qid, n = Number(row.dataset.n);
     const saved = row.querySelector("[data-saved]");
+    let current = new Set((questions.find(q => q.id === qid)?.correct_answers) ?? []);
 
     async function patch(changes) {
       const { error } = await supabase.from("questions").update(changes).eq("id", qid);
@@ -151,11 +176,25 @@ async function loadGrid() {
       setTimeout(() => saved.style.opacity = "0", 1400);
     }
 
+    function repaint() {
+      row.querySelectorAll("[data-choice]").forEach(b => paintChoice(b, current.has(b.dataset.choice)));
+      paintSpecial(row.querySelector("[data-all]"), current.size === CHOICES.length, "var(--ok)");
+      paintSpecial(row.querySelector("[data-none]"), current.size === 0, "var(--bad)");
+    }
+
+    function setAnswers(next) {
+      current = next;
+      repaint();
+      patch({ correct_answers: [...current] });
+    }
+
     row.querySelectorAll("[data-choice]").forEach(btn => btn.addEventListener("click", () => {
-      row.querySelectorAll("[data-choice]").forEach(b => { b.style.background="var(--surface)"; b.style.color="var(--muted)"; b.style.borderColor="var(--hairline)"; });
-      btn.style.background="var(--brand)"; btn.style.color="#fff"; btn.style.borderColor="var(--brand)";
-      patch({ correct_answer: btn.dataset.choice });
+      const next = new Set(current);
+      next.has(btn.dataset.choice) ? next.delete(btn.dataset.choice) : next.add(btn.dataset.choice);
+      setAnswers(next);
     }));
+    row.querySelector("[data-all]").addEventListener("click", () => setAnswers(new Set(CHOICES)));
+    row.querySelector("[data-none]").addEventListener("click", () => setAnswers(new Set()));
 
     row.querySelector("[data-topic]").addEventListener("blur", e => patch({ topic: e.target.value || null }));
 
@@ -166,26 +205,36 @@ async function loadGrid() {
 
     row.addEventListener("keydown", (e) => {
       const k = e.key.toUpperCase();
-      if (CHOICES.includes(k) && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
-        e.preventDefault();
-        row.querySelector(`[data-choice="${k}"]`).click();
+      if (document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "INPUT") return;
+      const advance = () => {
         const next = document.getElementById(`row-${n+1}`);
         if (next) { next.querySelector("[data-choice]").focus(); next.scrollIntoView({ block: "center", behavior: "smooth" }); }
-      }
+      };
+      if (CHOICES.includes(k)) { e.preventDefault(); setAnswers(new Set([k])); advance(); }
+      else if (k === "X") { e.preventDefault(); setAnswers(new Set(CHOICES)); advance(); }
+      else if (k === "0" || e.key === "Backspace") { e.preventDefault(); setAnswers(new Set()); advance(); }
     });
-    row.querySelectorAll("[data-choice]").forEach(b => b.tabIndex = 0);
+    row.querySelectorAll("[data-choice],[data-all],[data-none]").forEach(b => b.tabIndex = 0);
   });
 }
 loadGrid();
 
+// A value in the map is an array of letters: [] means "no correct answer",
+// all five means "all of the above", one letter is the normal case.
 function parseKey(text) {
   const map = new Map();
-  const pairs = [...text.matchAll(/(\d{1,3})\s*[\.\)\:\-\u2013=]?\s*([A-Ea-e])(?![A-Za-z])/g)];
-  if (pairs.length) { pairs.forEach(m => map.set(Number(m[1]), m[2].toUpperCase())); return map; }
-  const letters = text.toUpperCase().replace(/[^A-E]/g, "");
-  if (letters) { [...letters].forEach((c, i) => map.set(i + 1, c)); return map; }
-  const digits = text.match(/[1-5]/g) ?? [];
-  digits.forEach((d, i) => map.set(i + 1, CHOICES[Number(d) - 1]));
+  const pairs = [...text.matchAll(/(\d{1,3})\s*[\.\)\:\-\u2013=]?\s*([A-Ea-eXx]|0)(?![A-Za-z0-9])/g)];
+  if (pairs.length) {
+    pairs.forEach(m => {
+      const tok = m[2].toUpperCase();
+      map.set(Number(m[1]), tok === "X" ? [...CHOICES] : tok === "0" ? [] : [tok]);
+    });
+    return map;
+  }
+  const letters = text.toUpperCase().replace(/[^A-EX0]/g, "");
+  if (letters) { [...letters].forEach((c, i) => map.set(i + 1, c === "X" ? [...CHOICES] : c === "0" ? [] : [c])); return map; }
+  const digits = text.match(/[0-5]/g) ?? [];
+  digits.forEach((d, i) => map.set(i + 1, d === "0" ? [] : [CHOICES[Number(d) - 1]]));
   return map;
 }
 
@@ -200,8 +249,8 @@ document.getElementById("key-apply").addEventListener("click", async () => {
   const noImage = [...key.keys()].filter(n => !byNum.has(n)).length;
   msg.textContent = `Saving ${todo.length}…`;
   const failed = [];
-  await pool(todo, 6, async ([n, letter]) => {
-    const { error } = await supabase.from("questions").update({ correct_answer: letter }).eq("id", byNum.get(n));
+  await pool(todo, 6, async ([n, letters]) => {
+    const { error } = await supabase.from("questions").update({ correct_answers: letters }).eq("id", byNum.get(n));
     if (error) failed.push(n);
   });
   msg.textContent = `Saved ${todo.length - failed.length} answers.` +
