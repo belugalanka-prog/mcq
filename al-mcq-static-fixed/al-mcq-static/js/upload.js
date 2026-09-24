@@ -48,12 +48,12 @@ export async function uploadQuestionImages(paper, items, onProgress = () => {}) 
   return { rows, failed };
 }
 
-/** New questions get answer "A"; existing ones only get their image replaced, so re-uploading never wipes an answer key. */
+/** New questions get no answer set yet (correct_answers: []); existing ones only get their image replaced, so re-uploading never wipes an answer key. */
 export async function saveQuestionRows(paper, rows) {
   const { data: existing, error: existingError } = await supabase.from("questions").select("question_number").eq("paper_id", paper.id);
   if (existingError) throw existingError;
   const have = new Set((existing ?? []).map(q => q.question_number));
-  const fresh = rows.filter(r => !have.has(r.question_number)).map(r => ({ ...r, paper_id: paper.id, correct_answer: "A" }));
+  const fresh = rows.filter(r => !have.has(r.question_number)).map(r => ({ ...r, paper_id: paper.id, correct_answers: [] }));
   const old = rows.filter(r => have.has(r.question_number));
   if (fresh.length) {
     const { error } = await supabase.from("questions").insert(fresh);
