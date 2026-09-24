@@ -5,6 +5,7 @@ const ICON_BACK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const NAV = [
   ["index.html", "Overview"],
   ["papers.html", "Papers"],
+  ["special.html", "Special MCQ"],
   ["users.html", "Students"],
   ["reports.html", "Reports"],
   ["requests.html", "Requests"],
