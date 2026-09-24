@@ -82,3 +82,15 @@ input,select,textarea{font:inherit}
 
 img.qimg{width:100%;border-radius:14px;display:block}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+.legal-body h2{font-size:15px;margin-top:22px}
+.legal-body h2:first-child{margin-top:0}
+.legal-body p,.legal-body ul{margin-top:8px;font-size:14px;line-height:1.7;color:var(--muted)}
+.legal-body ul{padding-left:18px}
+
+.site-footer{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:40px;padding-top:20px;border-top:1px solid var(--hairline)}
+.site-footer a{font-size:13px;color:var(--muted)}
+.site-footer a:hover{color:var(--brand)}
+
+.section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:28px 0 12px}
+.section-label:first-child{margin-top:0}
