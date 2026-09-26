@@ -136,8 +136,7 @@ if (session) {
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
       .eq("user_id", user.id).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(4),
-    supabase.from("attempts").select("id,expires_at,papers(title,total_questions)")
-      .eq("user_id", user.id).is("completed_at",null).gt("expires_at", new Date().toISOString()).maybeSingle(),
+    supabase.rpc("get_active_attempt").maybeSingle(),
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
   ]);
   [statsError, attemptsError, runningError, topicsError].forEach((e) => dbError(e, "loading your dashboard"));
@@ -171,8 +170,8 @@ if (session) {
 
   document.getElementById("resume").innerHTML = running ? `
     <a href="exam.html?attempt=${running.id}" class="row between" style="background:var(--brand-soft);border-radius:16px;padding:16px;justify-content:space-between">
-      <div><p style="font-size:15px;font-weight:500">${esc(running.papers?.title)}</p>
-        <p class="num" style="margin-top:4px;font-size:13px;color:var(--brand)">${clock((new Date(running.expires_at)-Date.now())/1000)} left</p></div>
+      <div><p style="font-size:15px;font-weight:500">${esc(running.paper_title)}</p>
+        <p class="num" style="margin-top:4px;font-size:13px;color:var(--brand)">${running.paused ? "⏸ Paused" : `${clock(running.seconds_left)} left`}</p></div>
       <span class="pill pill-brand">Resume</span>
     </a>` : `<p class="muted" style="font-size:14px">Nothing in progress. Start a paper and it will wait here if you get interrupted.</p>`;
 
