@@ -19,6 +19,7 @@ button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select,textarea{font:inherit}
 .num{font-variant-numeric:tabular-nums}
 .hidden{display:none!important}
+.modal-backdrop{position:fixed;inset:0;background:rgba(27,24,52,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 
 .wrap{max-width:1280px;margin:0 auto;padding:24px 16px 110px}
 @media(min-width:768px){.wrap{padding:24px 24px 40px 96px}}
