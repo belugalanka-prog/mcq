@@ -84,6 +84,20 @@
   </div>
 </div>
 
+<div id="links-modal" class="modal-backdrop hidden">
+  <div class="card card-pad" style="width:100%;max-width:460px">
+    <div class="card-head"><h2>After-paper links</h2><button id="links-close" class="pill pill-ghost">Close</button></div>
+    <p class="muted" style="font-size:13px;margin-bottom:14px">Shown to a student on their result page once they finish <b id="links-title"></b>. Telegram or YouTube links both work. Leave any blank to hide that button.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label><span class="field-label">Marking scheme link</span><input class="field" id="links-marking" placeholder="https://t.me/… or https://…"></label>
+      <label><span class="field-label">Review link</span><input class="field" id="links-review" placeholder="https://t.me/… or https://…"></label>
+      <label><span class="field-label">Discussion video link</span><input class="field" id="links-video" placeholder="https://youtube.com/… or https://t.me/…"></label>
+    </div>
+    <p id="links-msg" class="muted" style="margin-top:10px;font-size:13px"></p>
+    <button id="links-save" class="pill pill-brand" style="margin-top:14px;justify-content:center;width:100%">Save links</button>
+  </div>
+</div>
+
 <script type="module">
 import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
@@ -165,6 +179,7 @@ function render() {
         </div>
         <div class="bar" style="width:80px"><span style="width:${pct}%"></span></div>
         <a href="questions.html?paper=${p.id}" class="pill pill-ghost">Questions</a>
+        <button class="pill pill-ghost" data-links="${p.id}">Links</button>
         <button class="pill ${p.is_published ? "pill-soft" : "pill-brand"}" data-publish="${p.id}">${p.is_published ? "Published" : "Publish"}</button>
       </div>`;
     }).join("");
@@ -206,6 +221,35 @@ async function setPublished(ids, publish) {
   $("bulk-msg").textContent = `${ids.length} ${publish ? "published" : "unpublished"}.` +
     (skipped.length ? ` Skipped ${skipped.length} that don't have all their questions yet: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : "");
 }
+
+/* ---------- after-paper links ---------- */
+let linksPaperId = null;
+$("list").addEventListener("click", e => {
+  const lb = e.target.closest("[data-links]");
+  if (lb) {
+    const p = papers.find(x => x.id === lb.dataset.links);
+    linksPaperId = p.id;
+    $("links-title").textContent = p.title;
+    $("links-marking").value = p.marking_scheme_url ?? "";
+    $("links-review").value = p.review_link_url ?? "";
+    $("links-video").value = p.discussion_video_url ?? "";
+    $("links-msg").textContent = "";
+    $("links-modal").classList.remove("hidden");
+  }
+});
+$("links-close").addEventListener("click", () => $("links-modal").classList.add("hidden"));
+$("links-save").addEventListener("click", async () => {
+  const btn = $("links-save");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const { error } = await supabase.from("papers").update({
+    marking_scheme_url: $("links-marking").value.trim() || null,
+    review_link_url: $("links-review").value.trim() || null,
+    discussion_video_url: $("links-video").value.trim() || null,
+  }).eq("id", linksPaperId);
+  btn.disabled = false; btn.textContent = "Save links";
+  $("links-msg").textContent = error ? error.message : "Saved.";
+  if (!error) { await loadPapers(); setTimeout(() => $("links-modal").classList.add("hidden"), 500); }
+});
 
 $("list").addEventListener("click", e => {
   const b = e.target.closest("[data-publish]");
