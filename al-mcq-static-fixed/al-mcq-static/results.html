@@ -30,6 +30,8 @@
     </div>
   </div>
 
+  <div id="paper-links" class="row" style="margin-top:16px"></div>
+
   <div class="card card-pad" style="margin-top:16px">
     <div class="card-head"><h2>Every question</h2></div>
     <div class="nav-grid" id="qgrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px"></div>
@@ -59,7 +61,7 @@ if (!session) throw new Error("redirecting");
 mountRail();
 
 const { data: attempt, error: attemptError } = await supabase.from("attempts")
-  .select("*,papers(title,subject,total_questions)")
+  .select("*,papers(title,subject,total_questions,marking_scheme_url,review_link_url,discussion_video_url)")
   .eq("id", attemptId).single();
 
 if (attemptError || !attempt || attempt.user_id !== session.user.id || !attempt.completed_at) {
@@ -80,6 +82,14 @@ document.getElementById("r-correct").textContent = attempt.correct_count;
 document.getElementById("r-wrong").textContent = attempt.wrong_count;
 document.getElementById("r-skip").textContent = attempt.unanswered_count;
 document.getElementById("r-time").textContent = `Finished in ${clock(attempt.time_taken_seconds || 0)}`;
+
+const links = [
+  ["Marking scheme", attempt.papers?.marking_scheme_url],
+  ["Full review", attempt.papers?.review_link_url],
+  ["Discussion video", attempt.papers?.discussion_video_url],
+].filter(([, url]) => url);
+document.getElementById("paper-links").innerHTML = links.map(([label, url]) =>
+  `<a href="${esc(url)}" target="_blank" rel="noopener" class="pill pill-soft">${label} ↗</a>`).join("");
 
 // Safe now: the attempt is closed, so correct_answer can be shown.
 const { data: rows, error: rowsError } = await supabase.from("attempt_answers")
