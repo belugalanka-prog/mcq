@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practice by lesson — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <h1 style="font-size:32px">Practice by lesson</h1>
+  <p class="muted" style="margin-top:8px;font-size:14px">Pick a lesson and answer every question tagged with it, pulled from every past paper — no need to sit a whole paper.</p>
+
+  <div style="margin-top:24px">
+    <p class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Subject</p>
+    <div class="row" id="subject-tabs" style="flex-wrap:wrap"></div>
+  </div>
+
+  <div id="lessons" style="margin-top:20px"></div>
+</div>
+
+<script type="module">
+import { getSession, signInWithGoogle } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar } from "./js/shell.js";
+import { esc, qs } from "./js/format.js";
+import { dbError } from "./js/db.js";
+import { TOPICS } from "./js/topics.js";
+
+mountRail();
+mountTopbar({ tabs: [
+  {href:"subject.html", label:"All papers"},
+  {href:"topics.html", label:"Lessons"},
+  {href:"dashboard.html", label:"Dashboard"},
+], search:false });
+
+const SUBJECTS = [["physics","Physics"],["chemistry","Chemistry"]];
+let subject = qs("subject", "physics");
+if (!SUBJECTS.some(([k]) => k === subject)) subject = "physics";
+
+const session = await getSession();
+
+function syncUrl() {
+  history.replaceState(null, "", `topics.html?subject=${subject}`);
+}
+
+function renderTabs() {
+  document.getElementById("subject-tabs").innerHTML = SUBJECTS.map(([k, l]) =>
+    `<button type="button" class="pill ${k === subject ? "pill-brand" : "pill-ghost"}" data-subject="${k}">${l}</button>`).join("");
+  document.querySelectorAll("[data-subject]").forEach(btn => btn.addEventListener("click", () => {
+    subject = btn.dataset.subject; renderTabs(); renderLessons();
+  }));
+}
+
+async function renderLessons() {
+  syncUrl();
+  const el = document.getElementById("lessons");
+  el.innerHTML = `<p class="muted" style="font-size:14px">Loading…</p>`;
+
+  const { data: counts, error } = await supabase.rpc("get_topic_counts", { p_subject: subject });
+  dbError(error, "loading lessons", { silent: true });
+  const countByTopic = new Map((counts ?? []).map(c => [c.topic, c.question_count]));
+
+  const lessons = (TOPICS[subject] ?? []).map(([en, si], i) => ({
+    n: i + 1, en, si, count: countByTopic.get(en) ?? 0,
+  }));
+
+  if (error) {
+    el.innerHTML = `<div class="card card-pad"><p class="muted" style="font-size:14px">Could not load lessons.<br><br><b>Error:</b> ${esc(error.message)}</p></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="grid g3">${lessons.map(l => `
+    <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between;gap:14px">
+      <div>
+        <span class="chip num">${String(l.n).padStart(2, "0")}</span>
+        <p style="margin-top:12px;font-size:16px;font-weight:500;line-height:1.3">${esc(l.en)}</p>
+        <p class="muted" style="margin-top:4px;font-size:13px">${esc(l.si)}</p>
+      </div>
+      <div>
+        <p class="num muted" style="font-size:13px;margin-bottom:10px">${l.count} question${l.count === 1 ? "" : "s"}</p>
+        <button class="pill ${l.count ? "pill-brand" : "pill-ghost"}" data-start="${escAttr(l.en)}" ${l.count ? "" : "disabled"} style="width:100%;justify-content:center">
+          ${l.count ? "Start practice" : "No questions yet"}
+        </button>
+      </div>
+    </div>`).join("")}</div>
+    <p id="start-err" class="muted" style="margin-top:14px;font-size:13px;color:var(--bad)"></p>`;
+
+  el.querySelectorAll("[data-start]").forEach(btn => btn.addEventListener("click", () => startLesson(btn.dataset.start, btn)));
+}
+const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
+
+async function startLesson(topic, btn) {
+  if (!session) {
+    document.getElementById("start-err").textContent = "";
+    const ok = confirm("Sign in with Google to practice this lesson?");
+    if (ok) signInWithGoogle();
+    return;
+  }
+  btn.disabled = true; const original = btn.textContent; btn.textContent = "Opening…";
+  const { data, error } = await supabase.rpc("start_topic_attempt", { p_subject: subject, p_topic: topic });
+  if (error) {
+    document.getElementById("start-err").textContent = error.message;
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  location.href = `exam.html?attempt=${row.attempt_id}`;
+}
+
+renderTabs();
+renderLessons();
+</script>
+</body>
+</html>
