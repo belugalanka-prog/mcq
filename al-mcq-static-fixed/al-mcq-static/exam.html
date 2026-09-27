@@ -45,6 +45,7 @@
     </div>
   </div>
   <div class="card" style="overflow:hidden">
+    <p id="q-source" class="muted hidden" style="padding:10px 16px 0;font-size:12.5px"></p>
     <img id="qimg" class="qimg" alt="Question">
   </div>
   <div id="options" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
@@ -222,6 +223,13 @@ function renderProgress() {
 function renderQuestion() {
   document.getElementById("qimg").src = question().question_image_url;
   document.getElementById("qimg").alt = `Question ${question().question_number}`;
+  const srcEl = document.getElementById("q-source");
+  if (!attempt.paper_id && question().paper_title) {
+    srcEl.textContent = `From: ${question().paper_title}`;
+    srcEl.classList.remove("hidden");
+  } else {
+    srcEl.classList.add("hidden");
+  }
   const instrUrl = question().instruction_image_url;
   document.getElementById("instr-wrap").classList.toggle("hidden", !instrUrl);
   if (instrUrl) document.getElementById("instr-img").src = instrUrl;
