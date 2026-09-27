@@ -94,7 +94,7 @@ document.getElementById("paper-links").innerHTML = links.map(([label, url]) =>
 
 // Safe now: the attempt is closed, so correct_answer can be shown.
 const { data: rows, error: rowsError } = await supabase.from("attempt_answers")
-  .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answers,review_text,review_image_url,papers(title))")
+  .select("selected_answer,is_correct,questions(id,question_number,question_image_url,topic,correct_answers,review_text,review_image_url,papers(title,year))")
   .eq("attempt_id", attemptId);
 dbError(rowsError, "loading question breakdown");
 
@@ -127,7 +127,7 @@ document.getElementById("wrong-list").innerHTML = items.filter(r => !r.is_correc
   const q = r.questions;
   return `<div class="card" id="q${q.question_number}" style="scroll-margin-top:24px">
     <div class="card-pad">
-      <div class="row" style="margin-bottom:12px"><span class="chip num">Question ${q.question_number}</span>${q.topic ? `<span class="muted" style="font-size:13px">${esc(q.topic)}</span>` : ""}</div>
+      <div class="row" style="margin-bottom:12px"><span class="chip num">Question ${q.question_number}</span>${q.topic ? `<span class="muted" style="font-size:13px">${esc(q.topic)}</span>` : ""}${q.papers?.title && !attempt.paper_id ? `<span class="muted num" style="font-size:12.5px;margin-left:auto">${esc(q.papers.title)}${q.papers.year ? ` (${q.papers.year})` : ""}</span>` : ""}</div>
       <img class="qimg" src="${q.question_image_url}" alt="Question ${q.question_number}">
       <div class="row" style="margin-top:16px">
         <span class="chip" style="background:rgba(240,71,108,.1);color:var(--bad)">You chose ${toNum(r.selected_answer) || "nothing"}</span>
