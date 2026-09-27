@@ -70,14 +70,15 @@ if (attemptError || !attempt || attempt.user_id !== session.user.id || !attempt.
   throw new Error("not found");
 }
 
-const subject = attempt.papers?.subject;
-mountTopbar({ backFallback:"results-index.html", tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"},{href:`subject.html?subject=${subject}`,label:"More papers"}] });
+const subject = attempt.papers?.subject ?? attempt.subject;
+const totalQuestions = attempt.papers?.total_questions ?? attempt.total_questions_snapshot;
+mountTopbar({ backFallback:"results-index.html", tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"},{href:attempt.papers ? `subject.html?subject=${subject}` : "topics.html",label:"More papers"}] });
 mountAdSlot(document.getElementById("ad-result"), "RESULT_BOTTOM");
-document.getElementById("another").href = `subject.html?subject=${subject}`;
+document.getElementById("another").href = attempt.papers ? `subject.html?subject=${subject}` : `topics.html?subject=${subject}`;
 
-document.getElementById("r-title").textContent = attempt.papers?.title ?? "";
+document.getElementById("r-title").textContent = attempt.papers?.title ?? attempt.topic ?? "";
 document.getElementById("r-pct").textContent = `${attempt.percentage}%`;
-document.getElementById("r-score").textContent = `${attempt.score} out of ${attempt.papers?.total_questions}`;
+document.getElementById("r-score").textContent = `${attempt.score} out of ${totalQuestions}`;
 document.getElementById("r-correct").textContent = attempt.correct_count;
 document.getElementById("r-wrong").textContent = attempt.wrong_count;
 document.getElementById("r-skip").textContent = attempt.unanswered_count;
