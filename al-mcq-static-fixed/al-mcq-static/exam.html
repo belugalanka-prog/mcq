@@ -225,7 +225,7 @@ function renderQuestion() {
   document.getElementById("qimg").alt = `Question ${question().question_number}`;
   const srcEl = document.getElementById("q-source");
   if (!attempt.paper_id && question().paper_title) {
-    srcEl.textContent = `From: ${question().paper_title}`;
+    srcEl.textContent = `From: ${question().paper_title}${question().paper_year ? ` (${question().paper_year})` : ""}`;
     srcEl.classList.remove("hidden");
   } else {
     srcEl.classList.add("hidden");
