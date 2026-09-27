@@ -126,7 +126,7 @@ if (!session) throw new Error("redirecting");
 
 const { data: attempt, error: attemptError } = await supabase
   .from("attempts")
-  .select("id,user_id,paper_id,mode,expires_at,completed_at,paused_at,papers(title)")
+  .select("id,user_id,paper_id,mode,expires_at,completed_at,paused_at,topic,papers(title)")
   .eq("id", attemptId).single();
 
 if (attemptError || !attempt || attempt.user_id !== session.user.id) {
@@ -136,7 +136,7 @@ if (attemptError || !attempt || attempt.user_id !== session.user.id) {
 }
 if (attempt.completed_at) { location.href = `results.html?attempt=${attemptId}`; throw new Error("done"); }
 
-document.getElementById("paper-title").textContent = attempt.papers?.title ?? "Paper";
+document.getElementById("paper-title").textContent = attempt.papers?.title ?? attempt.topic ?? "Practice";
 
 // get_exam_questions() is a SECURITY DEFINER function that returns only
 // id/question_number/question_image_url/topic — correct_answer never
