@@ -51,8 +51,8 @@
 import { requireStaff } from "../../js/auth.js";
 import { supabase } from "../../js/supabase.js";
 import { mountAdminShell } from "../../js/admin-shell.js";
-import { CHOICES, qs } from "../../js/format.js";
-import { pool, numberFromName, uploadQuestionImages, saveQuestionRows } from "../../js/upload.js";
+import { CHOICES, qs, esc } from "../../js/format.js";
+import { pool, numberFromName, uploadQuestionImages, saveQuestionRows, toWebp } from "../../js/upload.js";
 import { dbError } from "../../js/db.js";
 
 const paperId = qs("paper");
@@ -105,7 +105,7 @@ document.getElementById("file-input").addEventListener("change", e => e.target.f
 
 async function loadGrid() {
   const { data: questions, error: questionsError } = await supabase.from("questions")
-    .select("id,question_number,question_image_url,correct_answers,topic,review_text,review_image_url")
+    .select("id,question_number,question_image_url,correct_answers,topic,review_text,review_image_url,instruction_image_url")
     .eq("paper_id", paper.id).order("question_number");
   dbError(questionsError, "loading questions");
 
@@ -158,9 +158,18 @@ async function loadGrid() {
         </div>
         <input class="field" data-topic value="${q.topic ?? ""}" placeholder="Topic" style="min-width:140px;flex:1">
         <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
+        <button class="pill ${q.instruction_image_url?"pill-soft":"pill-ghost"}" data-toggle-instr>${q.instruction_image_url?"Instruction image added":"Add instruction image"}</button>
         <span data-saved style="width:20px;color:var(--ok);opacity:0">✓</span>
       </div>
       <textarea class="field hidden" data-review rows="4" style="margin-top:12px" placeholder="Worked answer shown after submission. Plain text or LaTeX, e.g. a = (v - u) / t">${q.review_text ?? ""}</textarea>
+      <div class="hidden" data-instr-area style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <p class="muted" style="font-size:12.5px;flex-basis:100%">Shown to the student on its own, right before this question — e.g. the note before question 31 or 41 in a Chemistry paper.</p>
+        ${q.instruction_image_url ? `<img data-instr-preview src="${q.instruction_image_url}" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">` : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`}
+        <input type="file" accept="image/*" data-instr-file hidden>
+        <button class="pill pill-soft" data-instr-upload>Upload image</button>
+        <button class="pill pill-ghost" data-instr-remove ${q.instruction_image_url ? "" : "disabled"} style="${q.instruction_image_url ? "" : "opacity:.5"}">Remove</button>
+        <span data-instr-msg class="muted" style="font-size:12.5px"></span>
+      </div>
     </div>`;
   }).join("");
 
@@ -202,6 +211,48 @@ async function loadGrid() {
       row.querySelector("[data-review]").classList.toggle("hidden");
     });
     row.querySelector("[data-review]").addEventListener("blur", e => patch({ review_text: e.target.value || null }));
+
+    row.querySelector("[data-toggle-instr]").addEventListener("click", () => {
+      row.querySelector("[data-instr-area]").classList.toggle("hidden");
+    });
+    const instrMsg = row.querySelector("[data-instr-msg]");
+    const instrBtn = row.querySelector("[data-toggle-instr]");
+    function paintInstrPreview(url) {
+      const old = row.querySelector("[data-instr-preview]");
+      const el = url
+        ? `<img data-instr-preview src="${url}" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">`
+        : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`;
+      old.outerHTML = el;
+      row.querySelector("[data-instr-remove]").disabled = !url;
+      row.querySelector("[data-instr-remove]").style.opacity = url ? "1" : ".5";
+      instrBtn.textContent = url ? "Instruction image added" : "Add instruction image";
+      instrBtn.className = `pill ${url ? "pill-soft" : "pill-ghost"}`;
+    }
+    row.querySelector("[data-instr-upload]").addEventListener("click", () => row.querySelector("[data-instr-file]").click());
+    row.querySelector("[data-instr-file]").addEventListener("change", async e => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      instrMsg.textContent = "Uploading…";
+      try {
+        const webp = await toWebp(file);
+        const path = `${paper.subject}/${paper.id}/instr-q${String(n).padStart(3, "0")}.webp`;
+        const { error } = await supabase.storage.from("reviews").upload(path, webp, { contentType: "image/webp", upsert: true });
+        if (error) throw error;
+        const { data } = supabase.storage.from("reviews").getPublicUrl(path);
+        const url = `${data.publicUrl}?v=${Date.now()}`;
+        await patch({ instruction_image_url: url });
+        paintInstrPreview(url);
+        instrMsg.textContent = "Saved.";
+      } catch (err) {
+        instrMsg.textContent = err.message ?? "Upload failed.";
+      }
+      setTimeout(() => instrMsg.textContent = "", 2000);
+    });
+    row.querySelector("[data-instr-remove]").addEventListener("click", async () => {
+      await patch({ instruction_image_url: null });
+      paintInstrPreview(null);
+    });
 
     row.addEventListener("keydown", (e) => {
       const k = e.key.toUpperCase();
