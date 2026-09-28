@@ -37,13 +37,14 @@
 </div>
 
 <script type="module">
-import { getSession, signInWithGoogle } from "./js/auth.js";
+import { requireUser, signInWithGoogle } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 const paperId = qs("id");
+if (!(await requireUser())) throw new Error("redirecting to sign-in");
 mountRail();
 
 const { data: paper, error: paperError } = await supabase.from("papers").select("*").eq("id", paperId).eq("is_published", true).single();
@@ -83,7 +84,7 @@ function clockStr(totalSeconds) {
   return `${m} min`;
 }
 
-const session = await getSession();
+const session = await requireUser();
 const startArea = document.getElementById("start-area");
 
 if (!session) {
