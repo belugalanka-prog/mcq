@@ -57,21 +57,17 @@ const nameMode = settings?.find(s => s.key === "leaderboard_name_mode")?.value |
 const minPapers = Number(settings?.find(s => s.key === "accuracy_board_min_papers")?.value ?? 5);
 document.getElementById("sub").textContent = `Points come from correct answers and completed papers. The accuracy board needs at least ${minPapers} finished papers, so volume alone will not carry you up it.`;
 
-let rows = [];
-if (board === "accuracy") {
-  const { data, error } = await supabase.from("user_statistics")
-    .select("user_id,accuracy,completed_papers,total_points,profiles(full_name,display_name,hide_from_leaderboard)")
-    .gte("completed_papers", minPapers).order("accuracy",{ascending:false}).limit(50);
-  dbError(error, "loading leaderboard");
-  rows = (data||[]).map(r => ({ ...r, points: r.total_points }));
-} else {
-  const { data, error } = await supabase.from("leaderboard_entries")
-    .select("user_id,points,accuracy,profiles(full_name,display_name,hide_from_leaderboard)")
-    .eq("board_type", board).eq("period_key", periodKey(board)).order("points",{ascending:false}).limit(50);
-  dbError(error, "loading leaderboard");
-  rows = data || [];
-}
-rows = rows.filter(r => !r.profiles?.hide_from_leaderboard);
+// Filtering (hidden / suspended users) happens inside get_leaderboard() on the
+// server, before the top-50 cut. The browser can't read other students'
+// profiles, so it must not try to filter on them itself.
+const { data, error } = await supabase.rpc("get_leaderboard", {
+  p_board: board, p_period_key: periodKey(board), p_min_papers: minPapers,
+});
+dbError(error, "loading leaderboard");
+const rows = (data || []).map(r => ({
+  user_id: r.user_id, points: r.points, accuracy: r.accuracy,
+  profiles: { full_name: r.full_name, display_name: r.display_name },
+}));
 
 document.getElementById("list").innerHTML = rows.length ? rows.map((r, i) => {
   const me = session?.user.id === r.user_id;
