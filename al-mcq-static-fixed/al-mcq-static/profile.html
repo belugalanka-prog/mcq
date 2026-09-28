@@ -18,10 +18,22 @@
         <div><p id="name" style="font-size:18px;font-weight:600"></p><p class="muted" id="role" style="font-size:13px"></p></div>
         <button id="edit-open" class="pill pill-ghost" style="margin-left:auto">Edit profile</button>
       </div>
-      <div class="grid g3" style="margin-top:24px">
+      <div class="row" id="meta" style="margin-top:14px;gap:8px;flex-wrap:wrap"></div>
+      <div class="grid g3" style="margin-top:24px;row-gap:22px">
         <div><p class="num" id="p-papers" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Papers</p></div>
         <div><p class="num" id="p-acc" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Accuracy</p></div>
-        <div><p class="num" id="p-streak" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Streak</p></div>
+        <div><p class="num" id="p-streak" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Current streak</p></div>
+        <div><p class="num" id="p-longest" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Best streak</p></div>
+        <div><p class="num" id="p-points" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Total points</p></div>
+        <div><p class="num" id="p-best" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Best paper score</p></div>
+        <div><p class="num" id="p-week" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Points this week</p></div>
+        <div><p class="num" id="p-month" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Points this month</p></div>
+        <div><p class="num" id="p-qs" style="font-size:22px;font-weight:600"></p><p class="muted" style="font-size:12px">Questions answered</p></div>
+      </div>
+      <div class="row between" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--hairline)">
+        <p style="font-size:13px"><span class="num" id="p-right" style="font-weight:600;color:var(--ok)"></span> <span class="muted">correct</span></p>
+        <p style="font-size:13px"><span class="num" id="p-wrong" style="font-weight:600;color:var(--bad)"></span> <span class="muted">wrong</span></p>
+        <p style="font-size:13px"><span class="num" id="p-avg" style="font-weight:600"></span> <span class="muted">average score</span></p>
       </div>
 
       <form id="edit-form" class="hidden" style="display:flex;flex-direction:column;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--hairline)">
@@ -41,8 +53,17 @@
         Hide me from the leaderboard
         <input type="checkbox" id="hide-toggle">
       </label>
+      <p class="muted" style="font-size:13px;margin-top:10px">When on, you are left off every leaderboard. Your results and stats stay private to you either way.</p>
+      <div class="card-head" style="margin-top:24px"><h2>Account</h2></div>
+      <div class="row between" style="font-size:14px;padding:8px 0;border-bottom:1px solid var(--hairline)"><span class="muted">Email</span><span id="a-email" style="overflow-wrap:anywhere;text-align:right"></span></div>
+      <div class="row between" style="font-size:14px;padding:8px 0;border-bottom:1px solid var(--hairline)"><span class="muted">Member since</span><span id="a-since"></span></div>
+      <div class="row between" style="font-size:14px;padding:8px 0"><span class="muted">Last active</span><span id="a-last"></span></div>
       <button id="signout" class="pill pill-ghost" style="margin-top:20px">Sign out</button>
     </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-pad card-head" style="padding-bottom:0"><h2>Recent results</h2><a href="results-index.html" class="pill pill-ghost" style="font-size:13px">See all</a></div>
+    <div id="recent"></div>
   </div>
   <div id="footer"></div>
 </div>
@@ -50,7 +71,7 @@
 import { requireUser, signOut } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountFooter } from "./js/shell.js";
-import { esc } from "./js/format.js";
+import { esc, clock } from "./js/format.js";
 import { dbError, toast } from "./js/db.js";
 
 const session = await requireUser();
@@ -72,13 +93,66 @@ document.getElementById("hide-toggle").checked = !!profile?.hide_from_leaderboar
 
 const { data: stats, error: statsError } = await supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle();
 dbError(statsError, "loading your stats");
+const fmtDate = d => d ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+const n = v => Number(v ?? 0).toLocaleString();
 document.getElementById("p-papers").textContent = stats?.completed_papers ?? 0;
 document.getElementById("p-acc").textContent = `${Math.round(stats?.accuracy ?? 0)}%`;
 document.getElementById("p-streak").textContent = stats?.current_streak ?? 0;
+document.getElementById("p-longest").textContent = stats?.longest_streak ?? 0;
+document.getElementById("p-points").textContent = n(stats?.total_points);
+document.getElementById("p-week").textContent = n(stats?.weekly_points);
+document.getElementById("p-month").textContent = n(stats?.monthly_points);
+document.getElementById("p-qs").textContent = n(stats?.questions_answered);
+document.getElementById("p-right").textContent = n(stats?.correct_answers);
+document.getElementById("p-wrong").textContent = n(stats?.wrong_answers);
+
+// Account details
+document.getElementById("a-email").textContent = user.email || "—";
+document.getElementById("a-since").textContent = fmtDate(profile?.created_at || user.created_at);
+document.getElementById("a-last").textContent = fmtDate(stats?.last_active_date);
+function renderMeta() {
+  document.getElementById("meta").innerHTML =
+    `<span class="chip">${esc(profile?.role || "student")}</span>` +
+    `<span class="chip" style="background:var(--hairline);color:var(--muted)">Joined ${esc(fmtDate(profile?.created_at || user.created_at))}</span>` +
+    (profile?.hide_from_leaderboard ? `<span class="chip" style="background:var(--hairline);color:var(--muted)">Hidden from leaderboard</span>` : "");
+}
+renderMeta();
+
+// Recent results + best/average score, from finished attempts
+const { data: done, error: doneError } = await supabase.from("attempts")
+  .select("id,mode,completed_at,percentage,score,time_taken_seconds,topic,papers(title,total_questions)")
+  .eq("user_id", user.id).not("completed_at", "is", null)
+  .order("completed_at", { ascending: false }).limit(50);
+dbError(doneError, "loading your recent results");
+const finished = done || [];
+const pcts = finished.map(a => Number(a.percentage)).filter(x => !isNaN(x));
+document.getElementById("p-best").textContent = pcts.length ? `${Math.round(Math.max(...pcts))}%` : "—";
+document.getElementById("p-avg").textContent = pcts.length ? `${Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)}%` : "—";
+document.getElementById("recent").innerHTML = finished.length ? finished.slice(0, 8).map(a => `
+  <a href="results.html?attempt=${a.id}" class="row between" style="border-top:1px solid var(--hairline);padding:14px 24px;gap:16px;margin-top:14px">
+    <div style="min-width:0;flex:1">
+      <p style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.papers?.title || a.topic || "Practice")}</p>
+      <p class="muted" style="font-size:12.5px">${esc(fmtDate(a.completed_at))} · ${a.mode === "practice" ? "Practice" : "Exam"} · ${clock(a.time_taken_seconds || 0)}</p>
+    </div>
+    <p class="num" style="font-size:15px;font-weight:600;color:${a.percentage >= 75 ? "var(--ok)" : a.percentage >= 50 ? "var(--brand)" : "var(--warn)"}">${Math.round(a.percentage ?? 0)}%</p>
+  </a>`).join("")
+  : `<p class="card-pad muted" style="font-size:14px">No finished papers yet. Sit one and it will show up here.</p>`;
 
 document.getElementById("hide-toggle").addEventListener("change", async (e) => {
-  const { error } = await supabase.from("profiles").update({ hide_from_leaderboard: e.target.checked }).eq("id", user.id);
-  if (dbError(error, "saving preference")) { e.target.checked = !e.target.checked; return; }
+  const box = e.target, wanted = box.checked;
+  box.disabled = true; // stop rapid re-toggling from racing two saves
+  // .select() returns the updated row, so we can tell a real save from an
+  // update that matched nothing (which reports no error at all).
+  const { data, error } = await supabase.from("profiles")
+    .update({ hide_from_leaderboard: wanted }).eq("id", user.id).select("hide_from_leaderboard");
+  box.disabled = false;
+  if (dbError(error, "saving preference") || !data?.length || data[0].hide_from_leaderboard !== wanted) {
+    box.checked = !wanted;
+    if (!error) toast("Could not save that. Try again.", "error");
+    return;
+  }
+  profile = { ...profile, hide_from_leaderboard: wanted };
+  renderMeta();
   toast("Saved.", "success");
 });
 document.getElementById("signout").addEventListener("click", signOut);
