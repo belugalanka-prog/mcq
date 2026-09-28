@@ -5,13 +5,15 @@
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   var doc = document.documentElement;
   var hasSplash = !!document.getElementById("intro");            // login + dashboard run their own intro
+  // Animate only the page content. The fixed nav rail lives on <body>, so animating <body> would drag it up and down.
+  var stage = document.querySelector(".wrap");
   var isExam = /\/exam\.html$/.test(location.pathname);          // keep the exam screen calm and fast
 
   var css = "\
 html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}\
 @keyframes mo-page{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}\
-body.mo-page{animation:mo-page .45s cubic-bezier(.2,.8,.3,1) both}\
-body.mo-leave{opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease;pointer-events:none}\
+.mo-page{animation:mo-page .45s cubic-bezier(.2,.8,.3,1) both}\
+.mo-leave{opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease;pointer-events:none}\
 .mo-in{opacity:0;transform:translateY(16px);transition:opacity .55s cubic-bezier(.2,.8,.3,1),transform .55s cubic-bezier(.2,.8,.3,1);transition-delay:var(--mo-d,0s)}\
 .mo-in.mo-show{opacity:1;transform:none}\
 a.card,button.card{transition:transform .25s cubic-bezier(.2,.8,.3,1),box-shadow .25s ease,opacity .55s ease}\
@@ -21,12 +23,12 @@ a.card:active,.pill:active,.option:active,.rail-item:active{transform:scale(.97)
 .pill:hover{transform:translateY(-1px)}\
 .bar span{transform-origin:left;animation:mo-grow .9s cubic-bezier(.2,.8,.3,1) .2s both}\
 @keyframes mo-grow{from{transform:scaleX(0)}to{transform:none}}\
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}body.mo-page{animation:none}.mo-in{opacity:1;transform:none;transition:none}.bar span{animation:none}}";
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mo-page{animation:none}.mo-in{opacity:1;transform:none;transition:none}.bar span{animation:none}}";
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
   // ---- Page enter / leave ----
-  if (!reduce && !hasSplash) document.body.classList.add("mo-page");
-  window.addEventListener("pageshow", function (e) { if (e.persisted) document.body.classList.remove("mo-leave"); });
+  if (!reduce && !hasSplash && stage) stage.classList.add("mo-page");
+  window.addEventListener("pageshow", function (e) { if (e.persisted && stage) stage.classList.remove("mo-leave"); });
   if (!reduce) document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("a[href]");
     if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -34,7 +36,7 @@ a.card:active,.pill:active,.option:active,.rail-item:active{transform:scale(.97)
     var u; try { u = new URL(a.href, location.href); } catch (_) { return; }
     if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     e.preventDefault();
-    document.body.classList.add("mo-leave");
+    if (stage) stage.classList.add("mo-leave");
     setTimeout(function () { location.href = u.href; }, 190);
   });
 
