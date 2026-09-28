@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+<style>
+  .modal-backdrop{position:fixed;inset:0;background:rgba(27,24,52,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -44,6 +47,15 @@
     <a href="leaderboard.html" class="pill pill-ghost">See the leaderboard</a>
   </div>
   <div id="ad-result" style="margin-top:16px"></div>
+</div>
+
+<div id="links-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="links-title">
+  <div class="card card-pad" style="width:100%;max-width:400px">
+    <h2 id="links-title" style="font-size:18px">Paper finished 🎉</h2>
+    <p class="muted" style="margin-top:6px;font-size:14px">Here are the resources for this paper.</p>
+    <div id="links-modal-list" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
+    <button id="links-close" class="pill pill-ghost" style="width:100%;justify-content:center;margin-top:16px">Close</button>
+  </div>
 </div>
 
 <script type="module">
@@ -91,6 +103,30 @@ const links = [
 ].filter(([, url]) => url);
 document.getElementById("paper-links").innerHTML = links.map(([label, url]) =>
   `<a href="${esc(url)}" target="_blank" rel="noopener" class="pill pill-soft">${label} ↗</a>`).join("");
+
+// Links popup: opens automatically right after a paper is submitted
+// (exam.html adds ?finished=1), and can be reopened with a button.
+if (links.length) {
+  const modal = document.getElementById("links-modal");
+  document.getElementById("links-modal-list").innerHTML = links.map(([label, url]) =>
+    `<a href="${esc(url)}" target="_blank" rel="noopener" class="pill pill-brand" style="justify-content:center">${label} ↗</a>`).join("");
+  const closeModal = () => modal.classList.add("hidden");
+  document.getElementById("links-close").addEventListener("click", closeModal);
+  modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  const reopen = document.createElement("button");
+  reopen.className = "pill pill-brand";
+  reopen.textContent = "Paper links";
+  reopen.addEventListener("click", () => modal.classList.remove("hidden"));
+  document.getElementById("paper-links").prepend(reopen);
+
+  if (qs("finished")) {
+    modal.classList.remove("hidden");
+    // Drop the flag so a refresh doesn't pop it up again.
+    history.replaceState(null, "", `results.html?attempt=${attemptId}`);
+  }
+}
 
 // Safe now: the attempt is closed, so correct_answer can be shown.
 const { data: rows, error: rowsError } = await supabase.from("attempt_answers")
