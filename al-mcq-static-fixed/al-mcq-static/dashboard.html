@@ -90,6 +90,11 @@
     <div class="grid g3" id="tiles"></div>
   </div>
 
+  <div class="card card-pad" style="margin-top:16px">
+    <div class="card-head"><h2>New papers to do</h2><a href="subject.html" style="font-size:13px;color:var(--brand)">Browse all</a></div>
+    <div id="recent-papers"><p class="muted" style="font-size:14px">Loading…</p></div>
+  </div>
+
   <p class="section-label">Your progress</p>
   <div class="grid g3">
     <div class="card card-pad">
@@ -227,14 +232,31 @@ if (session) {
     { data: attempts, error: attemptsError },
     { data: running, error: runningError },
     { data: topics, error: topicsError },
+    { data: recentPapers, error: recentPapersError },
+    { data: doneRows },
   ] = await Promise.all([
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
       .eq("user_id", user.id).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(4),
     supabase.rpc("get_active_attempt").maybeSingle(),
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
+    supabase.from("papers").select("id,title,subject,paper_type,year,duration_minutes,total_questions")
+      .eq("is_published", true).order("created_at", { ascending: false }).limit(16),
+    supabase.from("attempts").select("paper_id").eq("user_id", user.id),
   ]);
-  [statsError, attemptsError, runningError, topicsError].forEach((e) => dbError(e, "loading your dashboard"));
+  [statsError, attemptsError, runningError, topicsError, recentPapersError].forEach((e) => dbError(e, "loading your dashboard"));
+
+  const KIND = { past:"Past paper", topic:"Topic paper", model:"Model paper", teacher:"Teacher paper", special:"Special MCQ" };
+  const doneIds = new Set((doneRows ?? []).map(r => r.paper_id));
+  const todo = (recentPapers ?? []).filter(p => !doneIds.has(p.id)).slice(0, 5);
+  document.getElementById("recent-papers").innerHTML = todo.length ? todo.map(p => `
+    <a href="paper.html?id=${p.id}" class="row" style="justify-content:space-between;border-top:1px solid var(--hairline);padding:14px 0;gap:16px">
+      <div style="flex:1;min-width:0">
+        <p style="font-size:14px;font-weight:500">${esc(p.title)}</p>
+        <p class="num muted" style="margin-top:2px;font-size:12px">${[p.year, titleCase(p.subject), KIND[p.paper_type] ?? titleCase(p.paper_type)].filter(Boolean).join(" · ")} · ${p.total_questions} questions · ${p.duration_minutes} min</p>
+      </div>
+      <span class="pill pill-soft">Start</span>
+    </a>`).join("") : `<p class="muted" style="font-size:14px">You're all caught up — no new papers to do.</p>`;
 
   document.getElementById("run-stats").innerHTML = `
     <div><p class="num" data-count="${stats?.completed_papers ?? 0}" style="font-size:24px;font-weight:600">${stats?.completed_papers ?? 0}</p><p class="muted" style="font-size:13px">Papers done</p></div>
@@ -277,6 +299,8 @@ if (session) {
       <div class="bar" style="width:100px"><span style="width:${a.percentage||0}%"></span></div>
       <p class="num" style="font-size:14px;font-weight:600">${a.percentage}%</p>
     </a>`).join("") : `<p class="muted" style="font-size:14px">No attempts yet. Your first paper will show up here with a full breakdown.</p>`;
+
+  window.motionRefresh?.();
 
   // Count-up numbers + ring draw-in, once the splash/entrance has had time to play.
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
