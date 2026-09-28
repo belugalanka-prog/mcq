@@ -29,11 +29,13 @@
 </div>
 
 <script type="module">
+import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
+if (!(await requireUser())) throw new Error("redirecting to sign-in");
 mountRail();
 mountTopbar({ tabs: [
   {href:"subject.html", label:"All papers"},
