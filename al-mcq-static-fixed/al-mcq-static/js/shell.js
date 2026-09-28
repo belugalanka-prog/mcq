@@ -154,15 +154,37 @@ export function mountThemeToggle() {
   });
 }
 
-/** Appends the legal footer (Terms, Privacy) to the end of `el` (defaults to .wrap). */
+/** Appends the site footer (brand, link columns, legal) to the end of `el` (defaults to .wrap). */
 export function mountFooter(el = document.querySelector(".wrap")) {
   if (!el) return;
-  const footer = document.createElement("div");
+  const footer = document.createElement("footer");
   footer.className = "site-footer";
   footer.innerHTML = `
-    <a href="terms.html">Terms & Conditions</a>
-    <a href="privacy.html">Privacy Policy</a>
-    <span class="muted" style="font-size:13px">© ${new Date().getFullYear()} A/L Master</span>`;
+    <div class="sf-brand">
+      <span class="sf-mark">A/L</span>
+      <span class="display" style="font-size:18px">A/L Master</span>
+    </div>
+    <p class="muted sf-about">Timed A/L Physics and Chemistry MCQ papers for Sri Lankan students — past, topic and model papers with an instant topic breakdown.</p>
+    <div class="sf-cols">
+      <div><p class="sf-h">Subjects</p>
+        <a href="subject.html?subject=physics">Physics</a>
+        <a href="subject.html?subject=chemistry">Chemistry</a></div>
+      <div><p class="sf-h">Explore</p>
+        <a href="subject.html">All papers</a>
+        <a href="topics.html">Lessons</a>
+        <a href="leaderboard.html">Leaderboard</a>
+        <a href="dashboard.html">Dashboard</a></div>
+      <div><p class="sf-h">Your account</p>
+        <a href="profile.html">Profile</a>
+        <a href="results-index.html">My results</a></div>
+      <div><p class="sf-h">Legal</p>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms &amp; Conditions</a></div>
+    </div>
+    <div class="sf-base">
+      <span class="muted">© ${new Date().getFullYear()} A/L Master</span>
+      <span class="muted">Practise smarter. Score higher.</span>
+    </div>`;
   el.appendChild(footer);
 }
 
