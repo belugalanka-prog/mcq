@@ -200,15 +200,20 @@ export async function mountAdSlot(el, placement, minHeight = 220) {
   const ad = (candidates ?? []).find(a =>
     (!a.start_date || a.start_date <= today) && (!a.end_date || a.end_date >= today));
 
-  if (ad) {
+  // Only http(s) links and https images are ever rendered or opened, whatever is in the table.
+  const safeUrl = (u, httpsOnly) => { try { const x = new URL(u); return (x.protocol === "https:" || (!httpsOnly && x.protocol === "http:")) ? x.href : null; } catch { return null; } };
+  const adImg = ad && safeUrl(ad.image_url, true);
+  const adLink = ad && safeUrl(ad.link_url, false);
+
+  if (ad && adImg) {
     el.className = "card";
     el.style.overflow = "hidden";
     el.style.cursor = "pointer";
     el.style.minHeight = `${minHeight}px`;
-    el.innerHTML = `<img src="${ad.image_url}" alt="${ad.title ?? "Advertisement"}" style="width:100%;height:100%;min-height:${minHeight}px;object-fit:cover;display:block">`;
+    el.innerHTML = `<img src="${adImg}" alt="Advertisement" style="width:100%;height:100%;min-height:${minHeight}px;object-fit:cover;display:block">`;
     el.onclick = () => {
       supabase.rpc("track_ad_event", { p_ad_id: ad.id, p_type: "click", p_placement: placement });
-      window.open(ad.link_url ?? "#", "_blank", "noopener");
+      if (adLink) window.open(adLink, "_blank", "noopener,noreferrer");
     };
 
     const io = new IntersectionObserver((entries) => {
