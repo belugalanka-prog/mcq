@@ -17,14 +17,14 @@
   <div class="card" id="list" style="margin-top:20px"></div>
 </div>
 <script type="module">
-import { getSession } from "./js/auth.js";
+import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar } from "./js/shell.js";
 import { esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 const board = qs("board", "all_time");
-const session = await getSession();
+const session = await requireUser();
 mountRail();
 mountTopbar({ tabs: [{href:"leaderboard.html",label:"Leaderboard"},{href:"dashboard.html",label:"Dashboard"}] });
 
