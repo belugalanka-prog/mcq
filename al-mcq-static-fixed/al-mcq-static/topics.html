@@ -23,7 +23,7 @@
 </div>
 
 <script type="module">
-import { getSession, signInWithGoogle } from "./js/auth.js";
+import { requireUser, signInWithGoogle } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar } from "./js/shell.js";
 import { esc, qs } from "./js/format.js";
@@ -41,7 +41,7 @@ const SUBJECTS = [["physics","Physics"],["chemistry","Chemistry"]];
 let subject = qs("subject", "physics");
 if (!SUBJECTS.some(([k]) => k === subject)) subject = "physics";
 
-const session = await getSession();
+const session = await requireUser();
 
 function syncUrl() {
   history.replaceState(null, "", `topics.html?subject=${subject}`);
