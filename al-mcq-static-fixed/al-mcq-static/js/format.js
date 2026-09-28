@@ -13,7 +13,7 @@ export function titleCase(s) {
 export function esc(s) {
   const d = document.createElement("div");
   d.textContent = s ?? "";
-  return d.innerHTML;
+  return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 export function qs(name, fallback = null) {
