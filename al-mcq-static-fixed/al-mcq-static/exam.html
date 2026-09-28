@@ -180,7 +180,7 @@ async function submit() {
     alert(error.message);
     return;
   }
-  location.href = `results.html?attempt=${attemptId}`;
+  location.href = `results.html?attempt=${attemptId}&finished=1`;
 }
 
 // Timer derived from the server deadline every tick — never accumulated
