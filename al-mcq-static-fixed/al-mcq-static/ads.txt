@@ -1,4 +1,4 @@
-# Replace pub-0000000000000000 with your own AdSense publisher ID once approved.
+# AdSense publisher ID for almcq.vercel.app
 # Without a matching ads.txt, most buyers will not bid on your inventory,
 # which quietly caps what you earn.
-google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+google.com, pub-8054120040596132, DIRECT, f08c47fec0942fa0
