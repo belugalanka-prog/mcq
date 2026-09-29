@@ -2,10 +2,34 @@ import { supabase } from "./supabase.js";
 import { dbError } from "./db.js";
 
 /** Returns { user, profile } or null. Never throws. */
+function saveReturnUrl() {
+  const path = `${location.pathname.split("/").pop() || "index.html"}${location.search}${location.hash}`;
+  if (!/^[A-Za-z0-9_./-]+\.html(?:\?[^#]*)?(?:#.*)?$/.test(path)) return;
+  try { sessionStorage.setItem("auth_return_url", path); sessionStorage.setItem("auth_return_at", String(Date.now())); } catch (_) {}
+}
+
+function consumeReturnUrl() {
+  try {
+    const at = Number(sessionStorage.getItem("auth_return_at") || 0);
+    const target = sessionStorage.getItem("auth_return_url") || "";
+    if (!at || Date.now() - at > 15 * 60 * 1000) {
+      sessionStorage.removeItem("auth_return_url"); sessionStorage.removeItem("auth_return_at"); return "";
+    }
+    sessionStorage.removeItem("auth_return_url"); sessionStorage.removeItem("auth_return_at");
+    if (/^[A-Za-z0-9_./-]+\.html(?:\?[^#]*)?(?:#.*)?$/.test(target)) return target;
+  } catch (_) {}
+  return "";
+}
+
 export async function getSession() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   dbError(userError, "checking sign-in", { silent: true });
   if (!user) return null;
+  const returnUrl = location.pathname.endsWith("/dashboard.html") ? consumeReturnUrl() : "";
+  if (returnUrl && !location.pathname.endsWith(returnUrl.split("?")[0])) {
+    location.replace(returnUrl);
+    return null;
+  }
   const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   dbError(profileError, "loading your profile");
   return { user, profile };
@@ -15,6 +39,7 @@ export async function getSession() {
 export async function requireUser() {
   const session = await getSession();
   if (!session) {
+    saveReturnUrl();
     location.href = "index.html?signin=1";
     return null;
   }
