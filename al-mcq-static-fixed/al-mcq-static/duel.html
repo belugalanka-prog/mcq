@@ -1,264 +1,365 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Duel — A/L Master</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 <style>
-body{background:var(--bg)} .duel-wrap{max-width:900px;margin:0 auto;padding:20px}
-.duel-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
-.players{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
-.player{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
-.avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--line)}
-.player-row{display:flex;align-items:center;gap:10px}.score{font-size:25px;font-weight:700}.vs{font-weight:700;color:var(--muted)}
-.timer{height:9px;border-radius:99px;background:var(--line);overflow:hidden;margin:14px 0}.timer i{display:block;height:100%;width:100%;transform-origin:left;background:currentColor}
-.question-img{width:100%;max-height:480px;object-fit:contain;background:#fff;border-radius:14px;border:1px solid var(--line)}
-.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.answer{padding:15px;border:1px solid var(--line);background:var(--card);border-radius:13px;text-align:left;font:inherit;cursor:pointer}.answer b{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);margin-right:8px}.answer.selected{border-color:var(--brand,#5b4be7);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand,#5b4be7) 18%,transparent)}
-.answer:disabled{cursor:default}.reveal{padding:16px;border:1px solid var(--line);border-radius:14px;margin-top:14px}.choices{display:flex;gap:8px;flex-wrap:wrap}.choice{padding:8px 11px;border-radius:10px;background:var(--line)}.choice.good{outline:2px solid #22a06b}.choice.bad{outline:2px solid #d64545}
-.chat{border:1px solid var(--line);border-radius:14px;margin-top:14px;overflow:hidden}.chat-head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.messages{height:190px;overflow:auto;padding:10px}.msg{margin:7px 0;max-width:80%;padding:8px 10px;border-radius:12px;background:var(--line);font-size:13px}.msg.me{margin-left:auto}.chat-input{display:flex;gap:8px;padding:9px;border-top:1px solid var(--line)}.chat-input input{flex:1;min-width:0}.quick{display:flex;gap:5px;padding:7px 10px;overflow:auto}.quick button{border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 9px;white-space:nowrap}
-.hidden{display:none!important}.center{text-align:center;padding:48px 10px}.count{font-size:80px;font-weight:800;font-family:Poppins}
-@media(max-width:600px){.duel-wrap{padding:12px}.answers{grid-template-columns:1fr}.players{grid-template-columns:1fr auto 1fr}.player{padding:8px}.score{font-size:20px}.question-img{max-height:55vh}}
+  .duel{max-width:860px;margin:0 auto}
+  .players{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:16px}
+  .player{padding:14px 16px;border-radius:20px}
+  .player.lead{border-color:var(--brand)}
+  .avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--brand-soft);flex:none}
+  .pname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .score{font-family:Poppins,sans-serif;font-weight:600;font-size:26px;font-variant-numeric:tabular-nums}
+  .vs{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.08em}
+  .timer{margin:14px 0}.timer .bar{height:8px}.timer .bar>span{transform-origin:left;transition:background .3s}
+  .qimg{background:#fff;border:1px solid var(--hairline);max-height:480px;object-fit:contain}
+  .answers{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+  .answers .option{justify-content:center;padding:14px 0;flex-direction:column;gap:6px;font-weight:600}
+  .answers .option:disabled{cursor:default;opacity:.85}
+  .big{font-family:Poppins,sans-serif;font-weight:600;font-size:88px;line-height:1;color:var(--brand)}
+  .center{text-align:center;padding:44px 20px}
+  .code{font-family:Poppins,sans-serif;font-weight:600;font-size:38px;letter-spacing:.3em;margin:14px 0 4px;padding-left:.3em}
+  .who{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1px solid var(--hairline);margin-top:8px;font-size:14px}
+  .who.good{background:rgba(46,212,122,.1);border-color:var(--ok)}.who.bad{background:rgba(240,71,108,.08);border-color:var(--bad)}
+  .chat{margin-top:16px;overflow:hidden}
+  .chat-head{padding:12px 18px;border-bottom:1px solid var(--hairline)}
+  .messages{height:190px;overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+  .msg{max-width:78%;padding:8px 12px;border-radius:16px;background:var(--brand-soft);font-size:13px;line-height:1.4;word-break:break-word}
+  .msg.me{margin-left:auto;background:var(--brand);color:#fff}
+  .quick{display:flex;gap:6px;padding:0 14px 10px;overflow:auto}
+  .quick button{border:1px solid var(--hairline);border-radius:999px;padding:5px 12px;font-size:13px;white-space:nowrap;background:var(--surface)}
+  .quick button:hover{background:var(--brand-soft);color:var(--brand)}
+  .chat-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--hairline)}
+  #flash{margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad)}
+  .codebox{text-align:center;letter-spacing:.3em;font-size:20px;font-weight:600;text-transform:uppercase}
+  @media(max-width:600px){.answers{grid-template-columns:repeat(5,1fr);gap:6px}.score{font-size:21px}.player{padding:10px 12px}.avatar{width:32px;height:32px}.big{font-size:64px}.code{font-size:30px}}
 </style>
 </head>
 <body>
-<div class="duel-wrap">
+<div class="wrap">
   <div id="topbar"></div>
-  <div class="duel-top"><a href="dashboard.html" class="muted">← Dashboard</a><div style="display:flex;align-items:center;gap:8px"><span id="code" class="chip"></span><button id="show-join" class="pill" type="button">Join with code</button></div></div>
-  <div id="join-panel" class="card card-pad hidden" style="margin-bottom:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div><strong>Join your friend's duel</strong><div class="muted" style="font-size:13px;margin-top:3px">Enter the 6-character code they shared.</div></div>
-      <button id="hide-join" class="pill" type="button">Close</button>
+  <div class="duel">
+    <div class="between" style="margin-bottom:16px;gap:12px">
+      <span id="code" class="chip"></span>
+      <button id="show-join" class="pill pill-soft" type="button">Join with code</button>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <input id="quick-join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K3P9" style="flex:1;min-width:0;text-align:center;letter-spacing:.22em;font-size:20px;font-weight:700;text-transform:uppercase;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:inherit">
-      <button id="quick-join-btn" class="pill pill-brand" type="button">Join</button>
+    <div id="join-panel" class="card card-pad hidden" style="margin-bottom:16px">
+      <div class="between"><div><h2 style="font-size:16px">Join a friend's duel</h2><p class="muted" style="font-size:13px;margin-top:3px">Enter the 6-character code they shared.</p></div>
+        <button id="hide-join" class="pill pill-ghost" type="button">Close</button></div>
+      <div class="row" style="margin-top:14px;flex-wrap:nowrap">
+        <input id="quick-join-code" class="field codebox" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K3P9">
+        <button id="quick-join-btn" class="pill pill-brand" type="button">Join</button>
+      </div>
+      <p id="quick-join-error" class="muted" style="margin-top:8px;font-size:13px"></p>
     </div>
-    <p id="quick-join-error" class="muted" style="margin:8px 0 0"></p>
+    <div id="flash" class="hidden"></div>
+    <main id="app"><div class="card card-pad center"><h2>Loading duel…</h2><p class="muted" style="margin-top:8px">Connecting to the duel room.</p></div></main>
   </div>
-  <main id="app"><div class="card card-pad center"><h2>Loading duel…</h2><p class="muted">Connecting to the duel room.</p></div></main>
 </div>
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { dbError } from "./js/db.js";
-import { mountTopbar } from "./js/shell.js";
+import { mountRail, mountTopbar } from "./js/shell.js";
+import { esc } from "./js/format.js";
 
-const app=document.getElementById("app"), code=(new URLSearchParams(location.search).get("code")||"").toUpperCase();
-document.getElementById("code").textContent=code?`Code ${code}`:"";
+const $ = (id) => document.getElementById(id);
+const app = $("app");
+const code = (new URLSearchParams(location.search).get("code") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+const LETTERS = ["A", "B", "C", "D", "E"];
+const cleanCode = (v) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+const one = (d) => (Array.isArray(d) ? d[0] : d);
 
-function showJoinForm(message=""){
- app.innerHTML=`<div class="card card-pad" style="max-width:520px;margin:30px auto">
-   <h1 style="margin-bottom:8px">Join a duel</h1>
-   <p class="muted" style="margin-bottom:18px">Enter the 6-character code your friend shared with you.</p>
-   <label for="join-code" class="muted" style="display:block;font-size:13px;margin-bottom:6px">Duel code</label>
-   <input id="join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"
-     placeholder="e.g. A7K3P9"
-     style="width:100%;box-sizing:border-box;text-align:center;letter-spacing:.22em;font-size:22px;font-weight:700;text-transform:uppercase;padding:13px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:inherit">
-   <button id="join-code-btn" class="pill pill-brand" style="width:100%;margin-top:12px">Join duel</button>
-   ${message?`<p class="muted" style="margin-top:12px">${esc(message)}</p>`:""}
- </div>`;
- const input=document.getElementById("join-code"), btn=document.getElementById("join-code-btn");
- const go=()=>{
-   const value=(input.value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
-   if(value.length!==6){input.focus();return;}
-   location.href=`duel.html?code=${encodeURIComponent(value)}`;
- };
- btn.addEventListener("click",go);
- input.addEventListener("input",()=>{input.value=input.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);});
- input.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
- input.focus();
+let session, duelId = null, state = null, sig = "", messages = [], msgSig = "";
+let channel = null, poll = null, clockOffset = 0, advancing = "", loading = false;
+let myChoice = null, choiceFor = -1, pending = false, reveal = null, revealFor = -1;
+
+function flash(msg) {
+  const el = $("flash"); el.textContent = msg; el.classList.toggle("hidden", !msg);
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.classList.add("hidden"); }, 5000);
 }
-let session, duelId=null, state=null, timer=null, poll=null, channel=null, myChoice=null, answered=false, messages=[];
-const letters=["A","B","C","D","E"];
+const now = () => Date.now() + clockOffset;
+const isHost = () => (state?.me?.id || session.user.id) === state?.host_id;
 
-function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
-function avatar(url){return url?`<img class="avatar" src="${esc(url)}" alt="">`:`<div class="avatar"></div>`;}
-function players(){
- const me=state?.me||{}, op=state?.opponent||{};
- const hs=state?.host_score||0, gs=state?.guest_score||0;
- const myScore=me.id===state?.host_id?hs:gs, oppScore=me.id===state?.host_id?gs:hs;
-  return `<div class="players">
-   <div class="player"><div class="player-row">${avatar(me.avatar)}<div><strong>${esc(me.name||"You")}</strong><div class="muted" style="font-size:12px">You</div></div></div><div class="score" style="margin-top:6px">${myScore}</div></div>
-   <div class="vs">VS</div>
-   <div class="player"><div class="player-row">${avatar(op.avatar)}<div><strong>${esc(op.name||"Waiting…")}</strong><div class="muted" style="font-size:12px">${op.id?"Opponent":"Not joined"}</div></div></div><div class="score" style="margin-top:6px">${op.id?oppScore:0}</div></div>
- </div>`;
+/* ---------- join ---------- */
+function bindCodeInput(input, onGo) {
+  input.addEventListener("input", () => { input.value = cleanCode(input.value); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") onGo(); });
 }
-
-async function loadState(){
- if(!duelId)return;
- try {
-   const {data,error}=await supabase.rpc("get_duel_state",{p_duel:duelId});
-   if(error) throw error;
-   state=Array.isArray(data)?data[0]:data;
-   if(typeof state === "string") { try { state=JSON.parse(state); } catch(e){} }
-   if(!state || !state.id) throw new Error("The duel state was empty. Make sure migration-duels.sql has been run completely.");
-   state.me=state.me||{id:session?.user?.id||"",name:"You",avatar:null};
-   state.opponent=state.opponent||null;
-   render();
- } catch(error) {
-   console.error("Duel state error",error);
-   app.innerHTML=`<div class="card card-pad center"><h2>Could not load duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message||String(error))}</p><button id="retry-state" class="pill pill-brand">Retry</button><a class="pill" href="dashboard.html" style="margin-left:6px">Dashboard</a></div>`;
-   document.getElementById("retry-state")?.addEventListener("click",loadState);
- }
+function goToCode(value, errEl) {
+  const v = cleanCode(value);
+  if (v.length !== 6) { if (errEl) errEl.textContent = "Enter a 6-character code."; return; }
+  location.href = `duel.html?code=${encodeURIComponent(v)}`;
+}
+function showJoinForm(message = "") {
+  $("code").textContent = "";
+  app.innerHTML = `<div class="card card-pad" style="max-width:480px;margin:24px auto">
+    <h1 style="font-size:24px">Join a duel</h1>
+    <p class="muted" style="margin:8px 0 18px;font-size:14px">Enter the 6-character code your friend shared with you.</p>
+    <input id="join-code" class="field codebox" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. A7K3P9">
+    <button id="join-code-btn" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:12px">Join duel</button>
+    <p id="join-err" style="margin-top:12px;font-size:13px;color:var(--bad)">${esc(message)}</p></div>`;
+  const input = $("join-code"), go = () => goToCode(input.value, $("join-err"));
+  bindCodeInput(input, go); $("join-code-btn").addEventListener("click", go); input.focus();
+}
+async function join() {
+  const { data, error } = await supabase.rpc("join_duel", { p_code: code });
+  if (error) { showJoinForm(error.message); return; }
+  duelId = one(data).duel_id;
+  await loadState();
+  subscribe();
 }
 
-function startClock(){
- clearInterval(timer);
- timer=setInterval(async()=>{
-   if(!state?.deadline)return;
-   const left=Math.max(0,new Date(state.deadline).getTime()-Date.now());
-   const total=state.status==="question"?state.seconds*1000:(state.status==="countdown"?3000:state.discuss_seconds*1000);
-   const bar=document.querySelector(".timer i"); if(bar) bar.style.transform=`scaleX(${Math.min(1,left/total)})`;
-   const label=document.getElementById("time-left"); if(label) label.textContent=`${Math.ceil(left/1000)}s`;
-   if(left<=0){clearInterval(timer);await supabase.rpc("advance_duel",{p_duel:duelId});await loadState();}
- },100);
+/* ---------- data ---------- */
+async function loadState() {
+  if (!duelId || loading) return;
+  loading = true;
+  try {
+    const { data, error } = await supabase.rpc("get_duel_state", { p_duel: duelId });
+    if (error) throw error;
+    let s = one(data);
+    if (typeof s === "string") s = JSON.parse(s);
+    if (!s?.id) throw new Error("The duel state was empty. Make sure migration-duels.sql has been run completely.");
+    if (s.server_now) clockOffset = new Date(s.server_now).getTime() - Date.now();
+    state = s;
+    state.me = state.me || { id: session.user.id, name: "You", avatar: null };
+    syncLocal();
+    render();
+    maybeAdvance();
+  } catch (error) {
+    console.error("Duel state error", error);
+    if (!state) {
+      app.innerHTML = `<div class="card card-pad center"><h2>Could not load duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message || String(error))}</p>
+        <button id="retry-state" class="pill pill-brand">Retry</button> <a class="pill pill-soft" href="dashboard.html">Dashboard</a></div>`;
+      $("retry-state")?.addEventListener("click", loadState);
+    }
+  } finally { loading = false; }
+}
+/* Keeps the local answer state tied to the server's, and clears it on every new question. */
+function syncLocal() {
+  if (state.status !== "question") return;
+  if (choiceFor !== state.current_index) { myChoice = null; pending = false; choiceFor = state.current_index; }
+}
+const iAnswered = () => (isHost() ? state.host_answered : state.guest_answered);
+
+function maybeAdvance() {
+  if (!state || !duelId) return;
+  const s = state.status;
+  const due = ["countdown", "question", "discuss"].includes(s) && new Date(state.deadline).getTime() <= now();
+  const bothReady = s === "discuss" && state.host_ready && state.guest_ready;
+  if (!due && !bothReady) return;
+  const key = `${s}:${state.current_index}`;
+  if (advancing === key) return;
+  advancing = key;
+  supabase.rpc("advance_duel", { p_duel: duelId }).then(({ error }) => {
+    if (error) console.warn("advance_duel", error.message);
+    setTimeout(() => { if (advancing === key) advancing = ""; }, 1500); // allow a retry if nothing moved
+    loadState();
+  });
 }
 
-async function join(joinCode=code){
- if(!joinCode){showJoinForm();return;}
- const normalizedCode=String(joinCode).toUpperCase().trim();
- const {data,error}=await supabase.rpc("join_duel",{p_code:normalizedCode});
- if(error){
-   document.getElementById("code").textContent="";
-   showJoinForm(error.message);
-   return;
- }
- const row=Array.isArray(data)?data[0]:data; duelId=row.duel_id;
- await loadState();
- subscribe();
-}
-
-function subscribe(){
- channel=supabase.channel("duel-"+duelId)
-  .on("postgres_changes",{event:"UPDATE",schema:"public",table:"duels",filter:`id=eq.${duelId}`},async()=>{await loadState();})
-  .on("postgres_changes",{event:"INSERT",schema:"public",table:"duel_messages",filter:`duel_id=eq.${duelId}`},async()=>{await loadMessages();})
-  .subscribe();
- loadMessages();
- clearInterval(poll); poll=setInterval(loadState,2000);
-}
-
-async function loadMessages(){
- if(!duelId)return;
- const {data,error}=await supabase.rpc("get_duel_messages",{p_duel:duelId});
- if(!error){messages=data||[]; renderChat();}
-}
-function renderChat(){
- const box=document.getElementById("messages"); if(!box)return;
- box.innerHTML="";
- messages.forEach(m=>{
-  const row=document.createElement("div"); row.className="msg"+(m.sender_id===session.user.id?" me":"");
-  row.textContent=m.body; box.appendChild(row);
- });
- box.scrollTop=box.scrollHeight;
-}
-async function send(body,kind="text"){
- if(!body.trim())return;
- const {error}=await supabase.rpc("send_duel_message",{p_duel:duelId,p_body:body,p_kind:kind});
- if(error) alert(error.message); else await loadMessages();
-}
-function chat(){
- return `<div class="chat">
-  <div class="chat-head"><strong>Discuss</strong><span class="muted" style="font-size:12px">Chat is locked during questions</span></div>
-  <div id="messages" class="messages"></div>
-  <div class="quick"><button data-msg="👏">👏</button><button data-msg="🔥">🔥</button><button data-msg="😅">😅</button><button data-msg="🤔 Explain?">🤔 Explain?</button><button data-msg="Good one">Good one</button></div>
-  <div class="chat-input"><input id="chat-text" maxlength="300" placeholder="Talk about the question…"><button id="chat-send" class="pill pill-brand">Send</button></div>
- </div>`;
-}
-
-function render(){
- if(!state)return;
- const isHost=(state.me?.id||session?.user?.id)===state.host_id;
- const op=state.opponent;
- let body=players();
- if(state.status==="lobby"){
-  body+=`<div class="card card-pad center"><h1>Waiting for your friend</h1><p class="muted" style="margin:10px 0">Share code <strong>${esc(state.code)}</strong>. They can open the link and sign in.</p>
-   ${isHost?`<button id="start" class="pill pill-brand">Start duel</button>`:`<p class="muted">The host will start the duel.</p>`}</div>${chat()}`;
- } else if(state.status==="countdown"){
-  body+=`<div class="card center"><div class="count" id="count">${Math.max(1,Math.ceil((new Date(state.deadline)-Date.now())/1000))}</div><h2>Get ready</h2><div class="timer"><i></i></div></div>`;
- } else if(state.status==="question"){
-  const q=state.question;
-  if(state.next_image){const pre=new Image();pre.src=state.next_image;}
-  body+=`<div class="card card-pad"><div style="display:flex;justify-content:space-between"><strong>Question ${state.current_index+1} / ${state.question_count}</strong><strong id="time-left">${state.seconds}s</strong></div><div class="timer"><i></i></div>
-   <img class="question-img" src="${esc(q?.image||"")}" alt="Question ${state.current_index+1}">
-   <div class="answers">${letters.map(x=>`<button class="answer ${myChoice===x?"selected":""}" data-choice="${x}" ${answered?"disabled":""}><b>${x}</b> Answer ${x}</button>`).join("")}</div>
-   <p id="answered-note" class="muted" style="text-align:center;margin-top:12px">${answered?"Your answer is locked.":(state.host_answered&&state.guest_answered?"Both answered.":(state.host_answered||state.guest_answered)?`${esc(state.opponent?.name||"Your friend")} has answered.`:"")}</p>
-  </div>`;
- } else if(state.status==="discuss"){
-  body+=`<div class="card card-pad"><div style="display:flex;justify-content:space-between"><strong>Question ${state.current_index+1} result</strong><strong id="time-left"></strong></div>
-    <div class="reveal" id="reveal">Loading result…</div>
-    <div style="display:flex;gap:8px;margin-top:12px"><button id="ready" class="pill pill-brand">${state.host_ready&&state.guest_ready?"Starting…":"Ready"}</button><button id="extend" class="pill" ${state.discuss_extended?"disabled":""}>+10s</button></div>
-   </div>${chat()}`;
-  loadReveal();
- } else if(state.status==="finished"){
-  const winner=state.host_score===state.guest_score?"Draw":(state.host_score>state.guest_score?"You win!":"Duel lost");
-  body+=`<div class="card card-pad center"><h1>${winner}</h1><p class="muted">${state.host_score} — ${state.guest_score}</p><div style="display:flex;justify-content:center;gap:8px;margin-top:14px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill" href="dashboard.html">Dashboard</a></div></div>${chat()}`;
+function subscribe() {
+  channel = supabase.channel("duel-" + duelId)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "duels", filter: `id=eq.${duelId}` }, loadState)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "duel_messages", filter: `duel_id=eq.${duelId}` }, loadMessages)
+    .subscribe();
   loadMessages();
- }
- app.innerHTML=body;
- wire();
- if(["countdown","question","discuss"].includes(state.status))startClock();
- if(state.status==="lobby"||state.status==="discuss"||state.status==="finished")loadMessages();
+  clearInterval(poll); poll = setInterval(loadState, 2000);
+  setInterval(tick, 200);
 }
-async function loadReveal(){
- const {data,error}=await supabase.rpc("get_duel_reveal",{p_duel:duelId});
- const r=Array.isArray(data)?data[0]:data, el=document.getElementById("reveal"); if(!el)return;
- if(error){el.textContent=error.message;return;}
- const h=r.host,g=r.guest;
- el.innerHTML=`<p><strong>Correct answer: ${esc(r.correct)}</strong></p>
-  <div class="choices" style="margin-top:10px"><span class="choice ${h?.correct?"good":"bad"}">Host: ${esc(h?.choice||"—")}</span><span class="choice ${g?.correct?"good":"bad"}">Guest: ${esc(g?.choice||"—")}</span></div>
-  ${r.review?`<p class="muted" style="margin-top:12px;line-height:1.6">${esc(r.review)}</p>`:""}`;
+window.addEventListener("pagehide", () => { clearInterval(poll); if (channel) supabase.removeChannel(channel); });
+
+async function loadMessages() {
+  if (!duelId) return;
+  const { data, error } = await supabase.rpc("get_duel_messages", { p_duel: duelId });
+  if (error) return;
+  const next = data || [], s = next.map((m) => m.id).join(",");
+  if (s === msgSig) return;
+  msgSig = s; messages = next; renderChat();
 }
-function wire(){
- document.getElementById("start")?.addEventListener("click",async()=>{await supabase.rpc("start_duel",{p_duel:duelId});await loadState();});
- document.querySelectorAll("[data-choice]").forEach(b=>b.addEventListener("click",async()=>{
-  if(answered)return; answered=true;myChoice=b.dataset.choice;render();
-  const q=state.question; const {error}=await supabase.rpc("submit_duel_answer",{p_duel:duelId,p_question:q.id,p_choice:myChoice});
-  if(error){answered=false;alert(error.message);await loadState();} else {await loadState();}
- }));
- document.getElementById("ready")?.addEventListener("click",async()=>{await supabase.rpc("duel_ready",{p_duel:duelId});await loadState();});
- document.getElementById("extend")?.addEventListener("click",async()=>{await supabase.rpc("extend_discuss",{p_duel:duelId});await loadState();});
- document.getElementById("chat-send")?.addEventListener("click",()=>{const i=document.getElementById("chat-text");send(i.value);i.value="";});
- document.getElementById("chat-text")?.addEventListener("keydown",e=>{if(e.key==="Enter"){const i=e.currentTarget;send(i.value);i.value="";}});
- document.querySelectorAll("[data-msg]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.msg,"reaction")));
- document.getElementById("rematch")?.addEventListener("click",async()=>{const {data,error}=await supabase.rpc("create_rematch",{p_duel:duelId});if(error)alert(error.message);else location.href=`duel.html?code=${encodeURIComponent((Array.isArray(data)?data[0]:data).code)}`;});
+function renderChat() {
+  const box = $("messages"); if (!box) return;
+  box.innerHTML = "";
+  messages.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "msg" + (m.sender_id === session.user.id ? " me" : "");
+    row.textContent = m.body; box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
 }
-function setupQuickJoin(){
- const panel=document.getElementById("join-panel"), show=document.getElementById("show-join"), hide=document.getElementById("hide-join");
- const input=document.getElementById("quick-join-code"), btn=document.getElementById("quick-join-btn"), err=document.getElementById("quick-join-error");
- show?.addEventListener("click",()=>{panel?.classList.remove("hidden");input?.focus();});
- hide?.addEventListener("click",()=>panel?.classList.add("hidden"));
- const go=async()=>{
-   const value=(input?.value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
-   if(value.length!==6){if(err)err.textContent="Enter a 6-character code.";input?.focus();return;}
-   if(err)err.textContent="Joining…";
-   try{
-     const {data,error}=await supabase.rpc("join_duel",{p_code:value});
-     if(error)throw error;
-     const row=Array.isArray(data)?data[0]:data;
-     const id=row?.duel_id||row?.id;
-     if(!id)throw new Error("The duel could not be joined.");
-     location.href=`duel.html?code=${encodeURIComponent(value)}`;
-   }catch(e){if(err)err.textContent=e?.message||String(e);}
- };
- input?.addEventListener("input",()=>{input.value=input.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);if(err)err.textContent="";});
- input?.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
- btn?.addEventListener("click",go);
+async function send(body, kind = "text") {
+  if (!body.trim()) return;
+  const { error } = await supabase.rpc("send_duel_message", { p_duel: duelId, p_body: body, p_kind: kind });
+  if (error) flash(error.message); else loadMessages();
+}
+async function loadReveal() {
+  const idx = state.current_index;
+  if (revealFor === idx && reveal) return paintReveal();
+  const { data, error } = await supabase.rpc("get_duel_reveal", { p_duel: duelId });
+  const el = $("reveal"); if (!el) return;
+  if (error) { el.textContent = error.message; return; }
+  reveal = one(data); revealFor = idx; paintReveal();
 }
 
-(async()=>{
- try {
-   session=await requireUser();
-   if(!session) return;
-   setupQuickJoin();
-   try { await mountTopbar(); } catch(e) { console.warn("Topbar failed",e); }
-   if(code) await join(); else showJoinForm();
- } catch(error) {
-   console.error("Duel bootstrap error",error);
-   app.innerHTML=`<div class="card card-pad center"><h2>Unable to open duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message||String(error))}</p><button id="retry-page" class="pill pill-brand">Retry</button></div>`;
-   document.getElementById("retry-page")?.addEventListener("click",()=>location.reload());
- }
+/* ---------- ui ---------- */
+function avatar(url) { return url ? `<img class="avatar" src="${esc(url)}" alt="">` : `<div class="avatar"></div>`; }
+function playersHtml() {
+  const me = state.me || {}, op = state.opponent || {};
+  const meHost = me.id === state.host_id;
+  const my = meHost ? state.host_score : state.guest_score, their = meHost ? state.guest_score : state.host_score;
+  const card = (p, sub, score, lead) => `<div class="card player ${lead ? "lead" : ""}"><div class="row" style="flex-wrap:nowrap">${avatar(p.avatar)}
+    <div style="min-width:0"><p class="pname">${esc(p.name || sub)}</p><p class="muted" style="font-size:12px">${sub}</p></div></div>
+    <p class="score" style="margin-top:6px">${score}</p></div>`;
+  return `<div class="players">${card(me, "You", my, my > their)}<span class="vs">VS</span>
+    ${op.id ? card(op, "Opponent", their, their > my) : card({ name: "Waiting…" }, "Not joined", 0, false)}</div>`;
+}
+function chatHtml() {
+  return `<div class="card chat"><div class="chat-head between"><strong style="font-size:14px">Discuss</strong><span class="muted" style="font-size:12px">Chat is locked during questions</span></div>
+    <div id="messages" class="messages"></div>
+    <div class="quick"><button data-msg="👏">👏</button><button data-msg="🔥">🔥</button><button data-msg="😅">😅</button><button data-msg="🤔 Explain?">🤔 Explain?</button><button data-msg="Good one">Good one</button></div>
+    <div class="chat-input"><input id="chat-text" class="field" maxlength="300" placeholder="Talk about the question…"><button id="chat-send" class="pill pill-brand">Send</button></div></div>`;
+}
+function timerHtml() { return `<div class="timer"><div class="bar"><span id="timer-fill" style="width:100%"></span></div></div>`; }
+
+function signature() {
+  const s = state;
+  return [s.status, s.current_index, s.host_answered, s.guest_answered, s.host_ready, s.guest_ready, s.discuss_extended,
+    s.host_score, s.guest_score, s.guest_id, s.opponent?.name, myChoice, pending, s.deadline].join("|");
+}
+function render() {
+  const next = signature();
+  if (next === sig) return;
+  sig = next;
+  const keepText = $("chat-text")?.value || "", hadFocus = document.activeElement?.id === "chat-text";
+  const s = state, host = isHost();
+  let html = playersHtml();
+
+  if (s.status === "lobby") {
+    const link = `${location.origin}${location.pathname}?code=${encodeURIComponent(s.code)}`;
+    html += `<div class="card center"><span class="chip">${s.guest_id ? "Friend joined" : "Waiting for your friend"}</span>
+      <div class="code">${esc(s.code)}</div><p class="muted" style="font-size:13px">Share this code or the invite link.</p>
+      <div class="row" style="justify-content:center;margin-top:18px">
+        <button id="copy-link" class="pill pill-soft" data-link="${esc(link)}">Copy invite link</button>
+        ${host ? `<button id="start" class="pill pill-brand" ${s.guest_id ? "" : "disabled"}>Start duel</button>` : `<span class="muted" style="font-size:14px">The host will start the duel.</span>`}
+      </div></div>${chatHtml()}`;
+  } else if (s.status === "countdown") {
+    html += `<div class="card center"><div class="big" id="count">3</div><h2 style="margin-top:12px;font-size:20px">Get ready</h2>${timerHtml()}</div>`;
+  } else if (s.status === "question") {
+    const q = s.question, locked = iAnswered() || pending;
+    if (s.next_image) { const pre = new Image(); pre.src = s.next_image; }
+    const oppAnswered = host ? s.guest_answered : s.host_answered;
+    html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} / ${s.question_count}</strong><strong id="time-left" class="num">${s.seconds}s</strong></div>
+      ${timerHtml()}<img class="qimg" src="${esc(q?.image || "")}" alt="Question ${s.current_index + 1}" style="width:100%;border-radius:14px;display:block">
+      <div class="answers">${LETTERS.map((x) => `<button class="option ${myChoice === x ? "selected" : ""}" data-choice="${x}" ${locked ? "disabled" : ""}><span class="option-key">${x}</span></button>`).join("")}</div>
+      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px">${locked ? "Your answer is locked." : ""} ${oppAnswered ? `${esc(s.opponent?.name || "Your friend")} has answered.` : ""}</p></div>`;
+  } else if (s.status === "discuss") {
+    const both = s.host_ready && s.guest_ready, myReady = host ? s.host_ready : s.guest_ready;
+    html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} result</strong><strong id="time-left" class="num"></strong></div>
+      ${timerHtml()}<div id="reveal" class="muted">Loading result…</div>
+      <div class="row" style="margin-top:16px"><button id="ready" class="pill pill-brand" ${myReady || both ? "disabled" : ""}>${both ? "Starting…" : myReady ? "Waiting for friend" : "Ready"}</button>
+      <button id="extend" class="pill pill-soft" ${s.discuss_extended ? "disabled" : ""}>+10s</button></div></div>${chatHtml()}`;
+  } else if (s.status === "finished") {
+    const meHost = s.me?.id === s.host_id, my = meHost ? s.host_score : s.guest_score, their = meHost ? s.guest_score : s.host_score;
+    html += `<div class="card center"><span class="chip">Duel finished</span><h1 style="font-size:30px;margin-top:14px">${my === their ? "It's a draw" : my > their ? "You win!" : "You lost this one"}</h1>
+      <p class="display num" style="font-size:22px;margin-top:8px">${my} — ${their}</p>
+      <div class="row" style="justify-content:center;margin-top:20px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill pill-soft" href="dashboard.html">Dashboard</a></div></div>${chatHtml()}`;
+  } else {
+    html += `<div class="card center"><h2>This duel was ended</h2><a class="pill pill-brand" href="dashboard.html" style="margin-top:16px">Dashboard</a></div>`;
+  }
+
+  app.innerHTML = html;
+  wire();
+  if ($("chat-text")) { $("chat-text").value = keepText; if (hadFocus) $("chat-text").focus(); renderChat(); }
+  if (s.status === "discuss") loadReveal();
+  tick();
+}
+
+function paintReveal() {
+  const el = $("reveal"); if (!el || !reveal) return;
+  const me = state.me || {}, op = state.opponent || {}, meHost = me.id === state.host_id;
+  const row = (name, r) => `<div class="who ${r?.choice ? (r.correct ? "good" : "bad") : ""}"><span>${esc(name)}</span><strong>${esc(r?.choice || "No answer")}</strong></div>`;
+  el.className = "";
+  el.innerHTML = `<p style="font-size:15px">Correct answer: <strong style="color:var(--ok)">${esc(reveal.correct || "—")}</strong></p>
+    ${row(meHost ? "You" : op.name || "Host", reveal.host)}${row(meHost ? op.name || "Guest" : "You", reveal.guest)}
+    ${reveal.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(reveal.review)}</p>` : ""}
+    ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}`;
+}
+
+/* Runs 5x a second: updates the countdown bar without touching the rest of the DOM. */
+function tick() {
+  if (!state || !state.deadline) return;
+  const s = state.status; if (!["countdown", "question", "discuss"].includes(s)) return;
+  const left = Math.max(0, new Date(state.deadline).getTime() - now());
+  const total = s === "question" ? state.seconds * 1000 : s === "countdown" ? 3000 : state.discuss_seconds * 1000 + (state.discuss_extended ? 10000 : 0);
+  const pct = Math.max(0, Math.min(1, left / total)), fill = $("timer-fill");
+  if (fill) { fill.style.width = "100%"; fill.style.transform = `scaleX(${pct})`; fill.style.background = pct < .1 ? "var(--bad)" : pct < .25 ? "var(--warn)" : "var(--brand)"; }
+  const label = $("time-left"); if (label) label.textContent = `${Math.ceil(left / 1000)}s`;
+  const c = $("count"); if (c) c.textContent = Math.max(1, Math.ceil(left / 1000));
+  if (left <= 0) maybeAdvance();
+}
+
+function wire() {
+  $("start")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    const { error } = await supabase.rpc("start_duel", { p_duel: duelId });
+    if (error) { flash(error.message); e.target.disabled = false; } else loadState();
+  });
+  $("copy-link")?.addEventListener("click", async (e) => {
+    try { await navigator.clipboard.writeText(e.target.dataset.link); e.target.textContent = "Link copied"; } catch { e.target.textContent = "Copy failed"; }
+  });
+  document.querySelectorAll("[data-choice]").forEach((b) => b.addEventListener("click", async () => {
+    if (pending || iAnswered()) return;
+    pending = true; myChoice = b.dataset.choice; choiceFor = state.current_index; render();
+    const { error } = await supabase.rpc("submit_duel_answer", { p_duel: duelId, p_question: state.question.id, p_choice: myChoice });
+    if (error) { pending = false; myChoice = null; flash(error.message); }
+    pending = false; sig = ""; await loadState();
+  }));
+  $("ready")?.addEventListener("click", async () => {
+    const { error } = await supabase.rpc("duel_ready", { p_duel: duelId });
+    if (error) flash(error.message);
+    loadState();
+  });
+  $("extend")?.addEventListener("click", async () => {
+    const { error } = await supabase.rpc("extend_discuss", { p_duel: duelId });
+    if (error) flash(error.message);
+    loadState();
+  });
+  const sendNow = () => { const i = $("chat-text"); const v = i.value; i.value = ""; send(v); };
+  $("chat-send")?.addEventListener("click", sendNow);
+  $("chat-text")?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendNow(); });
+  document.querySelectorAll("[data-msg]").forEach((b) => b.addEventListener("click", () => send(b.dataset.msg, "reaction")));
+  $("rematch")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    const { data, error } = await supabase.rpc("create_rematch", { p_duel: duelId });
+    if (error) { flash(error.message); e.target.disabled = false; } else location.href = `duel.html?code=${encodeURIComponent(one(data).code)}`;
+  });
+}
+
+/* ---------- boot ---------- */
+(async () => {
+  try {
+    session = await requireUser();
+    if (!session) return;
+    mountRail();
+    mountTopbar({ tabs: [{ href: "dashboard.html", label: "Dashboard" }, { href: "subject.html", label: "Papers" }], search: false });
+    $("code").textContent = code ? `Code ${code}` : "Duel";
+    const panel = $("join-panel"), input = $("quick-join-code"), err = $("quick-join-error");
+    const go = () => goToCode(input.value, err);
+    $("show-join").addEventListener("click", () => { panel.classList.remove("hidden"); input.focus(); });
+    $("hide-join").addEventListener("click", () => panel.classList.add("hidden"));
+    $("quick-join-btn").addEventListener("click", go);
+    bindCodeInput(input, go);
+    if (code) await join(); else showJoinForm();
+  } catch (error) {
+    console.error("Duel bootstrap error", error);
+    app.innerHTML = `<div class="card card-pad center"><h2>Unable to open duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message || String(error))}</p><button id="retry-page" class="pill pill-brand">Retry</button></div>`;
+    $("retry-page")?.addEventListener("click", () => location.reload());
+  }
 })();
 </script>
 </body>
