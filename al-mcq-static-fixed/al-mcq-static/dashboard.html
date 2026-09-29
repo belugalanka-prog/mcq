@@ -126,7 +126,7 @@
         <a href="leaderboard.html" class="pill pill-soft" style="width:100%;justify-content:center;margin-top:16px">See the rankings</a>
       </div>
       <div class="card card-pad">
-        <div class="card-head"><h2>Duels</h2><a href="subject.html" style="font-size:13px;color:var(--brand)">Play</a></div>
+        <div class="card-head"><h2>Duels</h2><a href="duel.html" style="font-size:13px;color:var(--brand)">Join with code</a></div>
         <div id="recent-duels"><p class="muted" style="font-size:13px">Loading…</p></div>
       </div>
     </div>
@@ -238,8 +238,8 @@ if (session) {
     { data: running, error: runningError },
     { data: topics, error: topicsError },
     { data: recentPapers, error: recentPapersError },
-    { data: doneRows },
     { data: duels, error: duelsError },
+    { data: doneRows },
   ] = await Promise.all([
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
@@ -251,7 +251,17 @@ if (session) {
     supabase.from("duels").select("id,code,status,host_id,guest_id,host_score,guest_score,created_at").or(`host_id.eq.${user.id},guest_id.eq.${user.id}`).order("created_at",{ascending:false}).limit(4),
     supabase.from("attempts").select("paper_id").eq("user_id", user.id),
   ]);
-  [statsError, attemptsError, runningError, topicsError, recentPapersError].forEach((e) => dbError(e, "loading your dashboard"));
+  [statsError, attemptsError, runningError, topicsError, recentPapersError, duelsError].forEach((e) => dbError(e, "loading your dashboard"));
+
+  const DUEL_LABEL = { lobby:"Waiting", countdown:"Starting", question:"Live", discuss:"Live", finished:"Finished", abandoned:"Abandoned" };
+  document.getElementById("recent-duels").innerHTML = (duels ?? []).length ? duels.map(d => {
+    const mine = d.host_id === user.id ? d.host_score : d.guest_score, theirs = d.host_id === user.id ? d.guest_score : d.host_score;
+    const live = ["lobby","countdown","question","discuss"].includes(d.status);
+    const result = d.status === "finished" ? (mine === theirs ? "Draw" : mine > theirs ? "Won" : "Lost") : DUEL_LABEL[d.status];
+    return `<a href="duel.html?code=${encodeURIComponent(d.code)}" class="row" style="justify-content:space-between;border-top:1px solid var(--hairline);padding:12px 0">
+      <div><p style="font-size:14px;font-weight:500" class="num">${mine} — ${theirs}</p><p class="muted" style="font-size:12px">${esc(d.code)}</p></div>
+      <span class="chip" ${live ? "" : `style="background:var(--hairline);color:var(--muted)"`}>${result}</span></a>`;
+  }).join("") : `<p class="muted" style="font-size:13px">No duels yet. Open any paper and tap "Duel a friend".</p>`;
 
   const KIND = { past:"Past paper", topic:"Topic paper", model:"Model paper", teacher:"Teacher paper", special:"Special MCQ" };
   const doneIds = new Set((doneRows ?? []).map(r => r.paper_id));
