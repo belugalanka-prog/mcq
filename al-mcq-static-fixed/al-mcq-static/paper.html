@@ -34,17 +34,19 @@
         <div><p class="num" style="font-size:26px;font-weight:600" id="mins"></p><p class="muted" style="font-size:13px">Minutes</p></div>
       </div>
       <div id="start-area" style="margin-top:24px"></div><button id="duel-open" class="pill" style="width:100%;justify-content:center;margin-top:10px;border:1px solid var(--line);background:transparent">Duel a friend</button>
-      <div id="duel-setup" class="card card-pad" style="display:none;margin-top:12px">
-        <h3 style="margin:0 0 4px">Duel a friend</h3>
-        <p class="muted" style="font-size:12.5px;margin:0 0 12px">You both answer the same questions live. Your friend joins with the code.</p>
-        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
-          <label class="muted" style="font-size:13px">Questions<select id="duel-count" class="input" style="width:100%;margin-top:5px"></select></label>
-          <label class="muted" style="font-size:13px">Seconds / question<select id="duel-seconds" class="input" style="width:100%;margin-top:5px"><option>30</option><option selected>45</option><option>60</option><option>90</option></select></label>
-        </div>
-        <button id="duel-create" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:12px">Create duel</button>
-        <div id="duel-created" style="display:none;margin-top:12px"></div>
-      </div>
+      <div id="duel-setup" class="card card-pad" style="display:none;margin-top:12px;background:var(--brand-soft);border-color:transparent">
+        <h3 style="margin:0;font-size:16px">Duel a friend</h3>
+        <p class="muted" style="font-size:12.5px;margin:4px 0 0;line-height:1.5">You both answer the same questions live. Your friend joins with a code.</p>
 
+        <p class="field-label" style="margin:18px 0 8px">Questions</p>
+        <div id="duel-count-opts" class="row" style="gap:6px;flex-wrap:wrap"></div>
+
+        <p class="field-label" style="margin:16px 0 8px">Time per question</p>
+        <div id="duel-sec-opts" class="row" style="gap:6px;flex-wrap:wrap"></div>
+
+        <button id="duel-create" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:20px">Create duel</button>
+        <p id="duel-created" style="display:none;margin-top:10px;font-size:13px;text-align:center"></p>
+      </div>
     </div>
   </div>
 </div>
@@ -139,11 +141,19 @@ if (!session) {
   }
   render();
 
-  // "Full paper" first (value 0 = every question, in order); shorter random rounds only if the paper is long enough.
+  // Duel options as tap-to-pick chips (value 0 = the full paper, in order).
   const total = Number(paper.total_questions) || 0;
-  const countSel = document.getElementById("duel-count");
-  countSel.innerHTML = `<option value="0" selected>Full ${noun}${total ? ` (${total})` : ""}</option>` +
-    [10, 20, 30].filter(n => n < total).map(n => `<option value="${n}">${n} random</option>`).join("");
+  const countOpts = [[0, `Full ${noun}${total ? ` · ${total}` : ""}`], ...[10, 20, 30].filter(n => n < total).map(n => [n, `${n} random`])];
+  const secOpts = [30, 45, 60, 90].map(n => [n, `${n}s`]);
+  let duelCount = 0, duelSeconds = 45;
+  function chips(hostId, opts, current, onPick) {
+    const host = document.getElementById(hostId);
+    host.innerHTML = opts.map(([v, label]) =>
+      `<button type="button" class="pill ${v === current ? "pill-brand" : "pill-ghost"}" data-v="${v}" style="font-size:13px;background:${v === current ? "" : "var(--surface)"}">${label}</button>`).join("");
+    host.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { onPick(Number(b.dataset.v)); chips(hostId, opts, Number(b.dataset.v), onPick); }));
+  }
+  chips("duel-count-opts", countOpts, duelCount, v => { duelCount = v; });
+  chips("duel-sec-opts", secOpts, duelSeconds, v => { duelSeconds = v; });
 
   document.getElementById("duel-open").addEventListener("click", () => {
     const box = document.getElementById("duel-setup");
@@ -154,8 +164,8 @@ if (!session) {
     btn.disabled = true; btn.textContent = "Creating…";
     const { data, error } = await supabase.rpc("create_duel", {
       p_paper_id: paper.id,
-      p_question_count: Number(countSel.value),
-      p_seconds: Number(document.getElementById("duel-seconds").value),
+      p_question_count: duelCount,
+      p_seconds: duelSeconds,
     });
     if (error) {
       out.style.display = "block"; out.textContent = error.message; out.style.color = "var(--bad)";
