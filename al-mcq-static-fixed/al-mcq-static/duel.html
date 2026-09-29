@@ -21,7 +21,11 @@
   .qimg{background:#fff;border:1px solid var(--hairline);max-height:480px;object-fit:contain}
   .answers{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
   .answers .option{justify-content:center;padding:14px 0;flex-direction:column;gap:6px;font-weight:600}
-  .answers .option:disabled{cursor:default;opacity:.85}
+  .answers .option:disabled{cursor:default;opacity:.6}
+  .answers .option.selected{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 2px var(--brand) inset}
+  .answers .option.locked{opacity:1;box-shadow:0 0 0 2px var(--brand) inset}
+  .lockbar{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  .lockbar .pill{min-width:160px;justify-content:center}
   .big{font-family:Poppins,sans-serif;font-weight:600;font-size:88px;line-height:1;color:var(--brand)}
   .center{text-align:center;padding:44px 20px}
   .code{font-family:Poppins,sans-serif;font-weight:600;font-size:38px;letter-spacing:.3em;margin:14px 0 4px;padding-left:.3em}
@@ -143,7 +147,7 @@ function paintRoomBar() {
     : `${state.question_count} questions`;
   const over = ["finished", "abandoned"].includes(state.status);
   $("leave-btn").classList.toggle("hidden", over);
-  if (over && poll) { clearInterval(poll); poll = null; }   // nothing left to watch for
+  if (state.status === "abandoned" && poll) { clearInterval(poll); poll = null; }   // nothing left to watch for
 }
 /* Keeps the local answer state tied to the server's, and clears it on every new question. */
 function syncLocal() {
@@ -225,7 +229,7 @@ function playersHtml() {
     ${op.id ? card(op, "Opponent", their, their > my) : card({ name: "Waiting…" }, "Not joined", 0, false)}</div>`;
 }
 function chatHtml() {
-  return `<div class="card chat"><div class="chat-head between"><strong style="font-size:14px">Discuss</strong><span class="muted" style="font-size:12px">Chat is locked during questions</span></div>
+  return `<div class="card chat"><div class="chat-head between"><strong style="font-size:14px">Discuss</strong><span class="muted" style="font-size:12px">Chat opens after each question</span></div>
     <div id="messages" class="messages"></div>
     <div class="quick"><button data-msg="👏">👏</button><button data-msg="🔥">🔥</button><button data-msg="😅">😅</button><button data-msg="🤔 Explain?">🤔 Explain?</button><button data-msg="Good one">Good one</button></div>
     <div class="chat-input"><input id="chat-text" class="field" maxlength="300" placeholder="Talk about the question…"><button id="chat-send" class="pill pill-brand">Send</button></div></div>`;
@@ -235,7 +239,7 @@ function timerHtml() { return `<div class="timer"><div class="bar"><span id="tim
 function signature() {
   const s = state;
   return [s.status, s.current_index, s.host_answered, s.guest_answered, s.host_ready, s.guest_ready, s.discuss_extended,
-    s.host_score, s.guest_score, s.guest_id, s.opponent?.name, myChoice, pending, s.deadline].join("|");
+    s.host_score, s.guest_score, s.guest_id, s.opponent?.name, myChoice, pending, s.deadline, s.rematch_code].join("|");
 }
 function render() {
   const next = signature();
@@ -256,19 +260,24 @@ function render() {
   } else if (s.status === "countdown") {
     html += `<div class="card center"><div class="big" id="count">3</div><h2 style="margin-top:12px;font-size:20px">Get ready</h2>${timerHtml()}</div>`;
   } else if (s.status === "question") {
-    const q = s.question, locked = iAnswered() || pending;
+    const q = s.question, locked = iAnswered(), busy = pending;
     if (s.next_image) { const pre = new Image(); pre.src = s.next_image; }
     const oppAnswered = host ? s.guest_answered : s.host_answered;
+    const oppName = esc(s.opponent?.name || "Your friend");
+    const hint = locked ? `Answer locked${oppAnswered ? "" : " — waiting for " + oppName + "…"}`
+      : myChoice ? "You can change your answer until you lock it." : "Tap an option (or press 1–5), then lock it in.";
     html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} / ${s.question_count}</strong><strong id="time-left" class="num">${s.seconds}s</strong></div>
       ${timerHtml()}<img class="qimg" src="${esc(q?.image || "")}" alt="Question ${s.current_index + 1}" style="width:100%;border-radius:14px;display:block">
-      <div class="answers">${LETTERS.map((x) => `<button class="option ${myChoice === x ? "selected" : ""}" data-choice="${x}" ${locked ? "disabled" : ""}><span class="option-key">${num(x)}</span></button>`).join("")}</div>
-      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px">${locked ? "Your answer is locked." : "Tap an option, or press 1–5."} ${oppAnswered ? `${esc(s.opponent?.name || "Your friend")} has answered.` : ""}</p></div>`;
+      <div class="answers">${LETTERS.map((x) => `<button class="option ${myChoice === x ? "selected" : ""} ${locked && myChoice === x ? "locked" : ""}" data-choice="${x}" ${locked || busy ? "disabled" : ""}><span class="option-key">${num(x)}</span></button>`).join("")}</div>
+      <div class="lockbar"><button id="lock" class="pill pill-brand" ${locked || busy || !myChoice ? "disabled" : ""}>${locked ? "Locked ✓" : busy ? "Locking…" : myChoice ? "Lock answer " + num(myChoice) : "Lock answer"}</button></div>
+      <p class="muted" style="text-align:center;margin-top:12px;font-size:13px">${hint} ${locked && oppAnswered ? `${oppName} has answered.` : (!locked && oppAnswered ? `${oppName} has locked in.` : "")}</p></div>`;
   } else if (s.status === "discuss") {
-    const both = s.host_ready && s.guest_ready, myReady = host ? s.host_ready : s.guest_ready;
-    html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} result</strong><strong id="time-left" class="num"></strong></div>
-      ${timerHtml()}<div id="reveal" class="muted">Loading result…</div>
-      <div class="row" style="margin-top:16px"><button id="ready" class="pill pill-brand" ${myReady || both ? "disabled" : ""}>${both ? "Starting…" : myReady ? "Waiting for friend" : "Ready"}</button>
-      <button id="extend" class="pill pill-soft" ${s.discuss_extended ? "disabled" : ""}>+10s</button></div></div>${chatHtml()}`;
+    const both = s.host_ready && s.guest_ready, myReady = host ? s.host_ready : s.guest_ready, oppReady = host ? s.guest_ready : s.host_ready;
+    const last = s.current_index + 1 >= s.question_count, oppName = esc(s.opponent?.name || "Your friend");
+    html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} result</strong><span id="time-left" class="muted" style="font-size:12px"></span></div>
+      <div id="reveal" class="muted" style="margin-top:12px">Loading result…</div>
+      <div class="lockbar"><button id="ready" class="pill pill-brand" ${myReady || both ? "disabled" : ""}>${both ? "Starting…" : myReady ? `Waiting for ${oppName}…` : last ? "See final result" : "Next question →"}</button></div>
+      <p class="muted" style="text-align:center;margin-top:10px;font-size:13px">${oppReady && !myReady ? `${oppName} is ready for the next one.` : "Take your time — the next question starts when you both tap Next."}</p></div>${chatHtml()}`;
   } else if (s.status === "finished" || s.status === "abandoned") {
     const meHost = s.me?.id === s.host_id, my = meHost ? s.host_score : s.guest_score, their = meHost ? s.guest_score : s.host_score;
     const ended = s.status === "abandoned";
@@ -276,7 +285,7 @@ function render() {
     html += `<div class="card center"><span class="chip">${ended ? "Someone left" : "Duel finished"}</span><h1 style="font-size:30px;margin-top:14px">${title}</h1>
       <p class="display num" style="font-size:22px;margin-top:8px">${my} — ${their}</p>
       ${ended ? `<p class="muted" style="font-size:13px;margin-top:8px">Scores shown are from the questions played so far.</p>` : ""}
-      <div class="row" style="justify-content:center;margin-top:20px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill pill-soft" href="dashboard.html">Dashboard</a></div></div>${ended ? "" : chatHtml()}`;
+      <div class="row" style="justify-content:center;margin-top:20px"><button id="rematch" class="pill pill-brand">${s.rematch_code ? "Join rematch" : "Rematch"}</button><a class="pill pill-soft" href="dashboard.html">Dashboard</a></div></div>${ended ? "" : chatHtml()}`;
   } else {
     html += `<div class="card center"><h2>This duel is no longer available</h2><a class="pill pill-brand" href="dashboard.html" style="margin-top:16px">Dashboard</a></div>`;
   }
@@ -309,7 +318,8 @@ function tick() {
   const total = s === "question" ? state.seconds * 1000 : s === "countdown" ? 3000 : state.discuss_seconds * 1000 + (state.discuss_extended ? 10000 : 0);
   const pct = Math.max(0, Math.min(1, left / total)), fill = $("timer-fill");
   if (fill) { fill.style.width = "100%"; fill.style.transform = `scaleX(${pct})`; fill.style.background = pct < .1 ? "var(--bad)" : pct < .25 ? "var(--warn)" : "var(--brand)"; }
-  const label = $("time-left"); if (label) label.textContent = `${Math.ceil(left / 1000)}s`;
+  const label = $("time-left");
+  if (label) label.textContent = s === "discuss" ? (left < 60000 ? `Auto-next in ${Math.ceil(left / 1000)}s` : "") : `${Math.ceil(left / 1000)}s`;
   const c = $("count"); if (c) c.textContent = Math.max(1, Math.ceil(left / 1000));
   if (left <= 0) maybeAdvance();
 }
@@ -323,13 +333,14 @@ function wire() {
   $("copy-link")?.addEventListener("click", async (e) => {
     try { await navigator.clipboard.writeText(e.target.dataset.link); e.target.textContent = "Link copied"; } catch { e.target.textContent = "Copy failed"; }
   });
-  document.querySelectorAll("[data-choice]").forEach((b) => b.addEventListener("click", async () => {
-    if (pending || iAnswered()) return;
-    pending = true; myChoice = b.dataset.choice; choiceFor = state.current_index; render();
-    const { error } = await supabase.rpc("submit_duel_answer", { p_duel: duelId, p_question: state.question.id, p_choice: myChoice });
-    if (error) { pending = false; myChoice = null; flash(error.message); }
-    pending = false; sig = ""; await loadState();
+  document.querySelectorAll("[data-choice]").forEach((b) => b.addEventListener("click", () => {
+    if (pending || iAnswered() || state.status !== "question") return;
+    const c = b.dataset.choice;
+    if (c === myChoice) return;
+    myChoice = c; choiceFor = state.current_index; render();               // instant, changeable
+    supabase.rpc("save_duel_choice", { p_duel: duelId, p_question: state.question.id, p_choice: c }); // remembered on the server (refresh + time-out safe)
   }));
+  $("lock")?.addEventListener("click", lockAnswer);
   $("ready")?.addEventListener("click", async () => {
     const { error } = await supabase.rpc("duel_ready", { p_duel: duelId });
     if (error) flash(error.message);
@@ -351,6 +362,14 @@ function wire() {
   });
 }
 
+async function lockAnswer() {
+  if (!state || state.status !== "question" || pending || iAnswered() || !myChoice) return;
+  pending = true; render();
+  const { error } = await supabase.rpc("submit_duel_answer", { p_duel: duelId, p_question: state.question.id, p_choice: myChoice });
+  if (error) { flash(error.message); if (/locked|time/i.test(error.message)) myChoice = null; }
+  pending = false; sig = ""; await loadState();
+}
+
 /* ---------- leave + keyboard ---------- */
 async function leave() {
   const inLobby = state?.status === "lobby";
@@ -363,12 +382,19 @@ async function leave() {
   location.href = "dashboard.html";
 }
 document.addEventListener("keydown", (e) => {
-  if (!state || state.status !== "question" || pending || iAnswered()) return;
+  if (!state || pending || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(document.activeElement?.tagName || "") && e.key === "Enter") return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const i = Number(e.key);
-  if (i >= 1 && i <= 5) document.querySelector(`[data-choice="${LETTERS[i - 1]}"]`)?.click();
+  if (state.status === "question" && !iAnswered()) {
+    const i = Number(e.key);
+    if (i >= 1 && i <= 5) document.querySelector(`[data-choice="${LETTERS[i - 1]}"]`)?.click();
+    else if (e.key === "Enter") lockAnswer();
+  } else if (state.status === "discuss" && e.key === "Enter") {
+    $("ready")?.click();
+  }
 });
+// Coming back to the tab (phones especially) should catch up immediately.
+document.addEventListener("visibilitychange", () => { if (!document.hidden && duelId) { loadState(); loadMessages(); } });
 
 /* ---------- boot ---------- */
 (async () => {
