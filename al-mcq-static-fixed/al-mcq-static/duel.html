@@ -45,18 +45,9 @@
 <div class="wrap">
   <div id="topbar"></div>
   <div class="duel">
-    <div class="between" style="margin-bottom:16px;gap:12px">
-      <span id="code" class="chip"></span>
-      <button id="show-join" class="pill pill-soft" type="button">Join with code</button>
-    </div>
-    <div id="join-panel" class="card card-pad hidden" style="margin-bottom:16px">
-      <div class="between"><div><h2 style="font-size:16px">Join a friend's duel</h2><p class="muted" style="font-size:13px;margin-top:3px">Enter the 6-character code they shared.</p></div>
-        <button id="hide-join" class="pill pill-ghost" type="button">Close</button></div>
-      <div class="row" style="margin-top:14px;flex-wrap:nowrap">
-        <input id="quick-join-code" class="field codebox" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K3P9">
-        <button id="quick-join-btn" class="pill pill-brand" type="button">Join</button>
-      </div>
-      <p id="quick-join-error" class="muted" style="margin-top:8px;font-size:13px"></p>
+    <div id="room-bar" class="between hidden" style="margin-bottom:16px;gap:12px">
+      <div class="row" style="gap:8px;flex-wrap:wrap"><span id="code" class="chip"></span><span id="room-meta" class="chip" style="background:var(--hairline);color:var(--muted)"></span></div>
+      <button id="leave-btn" class="pill pill-ghost" type="button" style="font-size:13px">Leave</button>
     </div>
     <div id="flash" class="hidden"></div>
     <main id="app"><div class="card card-pad center"><h2>Loading duel…</h2><p class="muted" style="margin-top:8px">Connecting to the duel room.</p></div></main>
@@ -72,11 +63,13 @@ const $ = (id) => document.getElementById(id);
 const app = $("app");
 const code = (new URLSearchParams(location.search).get("code") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 const LETTERS = ["A", "B", "C", "D", "E"];
+// The question images number their options 1–5 (like the exam and results pages), so the buttons must too.
+const num = (c) => LETTERS.indexOf(c) + 1 || "?";
 const cleanCode = (v) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 const one = (d) => (Array.isArray(d) ? d[0] : d);
 
 let session, duelId = null, state = null, sig = "", messages = [], msgSig = "";
-let channel = null, poll = null, clockOffset = 0, advancing = "", loading = false;
+let channel = null, poll = null, tickTimer = null, clockOffset = 0, advancing = "", loading = false;
 let myChoice = null, choiceFor = -1, pending = false, reveal = null, revealFor = -1;
 
 function flash(msg) {
@@ -97,13 +90,14 @@ function goToCode(value, errEl) {
   location.href = `duel.html?code=${encodeURIComponent(v)}`;
 }
 function showJoinForm(message = "") {
-  $("code").textContent = "";
+  $("room-bar").classList.add("hidden");
   app.innerHTML = `<div class="card card-pad" style="max-width:480px;margin:24px auto">
     <h1 style="font-size:24px">Join a duel</h1>
     <p class="muted" style="margin:8px 0 18px;font-size:14px">Enter the 6-character code your friend shared with you.</p>
     <input id="join-code" class="field codebox" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. A7K3P9">
     <button id="join-code-btn" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:12px">Join duel</button>
-    <p id="join-err" style="margin-top:12px;font-size:13px;color:var(--bad)">${esc(message)}</p></div>`;
+    <p id="join-err" style="margin-top:12px;font-size:13px;color:var(--bad)">${esc(message)}</p>
+    <p class="muted" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hairline);font-size:13px">Want to host one instead? Open any paper and tap <b>Duel a friend</b> — <a href="subject.html" style="color:var(--brand)">browse papers</a>.</p></div>`;
   const input = $("join-code"), go = () => goToCode(input.value, $("join-err"));
   bindCodeInput(input, go); $("join-code-btn").addEventListener("click", go); input.focus();
 }
@@ -111,6 +105,7 @@ async function join() {
   const { data, error } = await supabase.rpc("join_duel", { p_code: code });
   if (error) { showJoinForm(error.message); return; }
   duelId = one(data).duel_id;
+  $("room-bar").classList.remove("hidden");
   await loadState();
   subscribe();
 }
@@ -128,6 +123,7 @@ async function loadState() {
     if (s.server_now) clockOffset = new Date(s.server_now).getTime() - Date.now();
     state = s;
     state.me = state.me || { id: session.user.id, name: "You", avatar: null };
+    paintRoomBar();
     syncLocal();
     render();
     maybeAdvance();
@@ -140,10 +136,20 @@ async function loadState() {
     }
   } finally { loading = false; }
 }
+function paintRoomBar() {
+  $("code").textContent = `Code ${state.code}`;
+  $("room-meta").textContent = state.full_paper
+    ? `Full paper · ${state.question_count} questions`
+    : `${state.question_count} questions`;
+  const over = ["finished", "abandoned"].includes(state.status);
+  $("leave-btn").classList.toggle("hidden", over);
+  if (over && poll) { clearInterval(poll); poll = null; }   // nothing left to watch for
+}
 /* Keeps the local answer state tied to the server's, and clears it on every new question. */
 function syncLocal() {
   if (state.status !== "question") return;
-  if (choiceFor !== state.current_index) { myChoice = null; pending = false; choiceFor = state.current_index; }
+  if (choiceFor !== state.current_index) { myChoice = state.my_choice || null; pending = false; choiceFor = state.current_index; }
+  else if (!myChoice && state.my_choice) myChoice = state.my_choice;   // page was refreshed after answering
 }
 const iAnswered = () => (isHost() ? state.host_answered : state.guest_answered);
 
@@ -170,9 +176,9 @@ function subscribe() {
     .subscribe();
   loadMessages();
   clearInterval(poll); poll = setInterval(loadState, 2000);
-  setInterval(tick, 200);
+  clearInterval(tickTimer); tickTimer = setInterval(tick, 200);
 }
-window.addEventListener("pagehide", () => { clearInterval(poll); if (channel) supabase.removeChannel(channel); });
+window.addEventListener("pagehide", () => { clearInterval(poll); clearInterval(tickTimer); if (channel) supabase.removeChannel(channel); });
 
 async function loadMessages() {
   if (!duelId) return;
@@ -255,21 +261,24 @@ function render() {
     const oppAnswered = host ? s.guest_answered : s.host_answered;
     html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} / ${s.question_count}</strong><strong id="time-left" class="num">${s.seconds}s</strong></div>
       ${timerHtml()}<img class="qimg" src="${esc(q?.image || "")}" alt="Question ${s.current_index + 1}" style="width:100%;border-radius:14px;display:block">
-      <div class="answers">${LETTERS.map((x) => `<button class="option ${myChoice === x ? "selected" : ""}" data-choice="${x}" ${locked ? "disabled" : ""}><span class="option-key">${x}</span></button>`).join("")}</div>
-      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px">${locked ? "Your answer is locked." : ""} ${oppAnswered ? `${esc(s.opponent?.name || "Your friend")} has answered.` : ""}</p></div>`;
+      <div class="answers">${LETTERS.map((x) => `<button class="option ${myChoice === x ? "selected" : ""}" data-choice="${x}" ${locked ? "disabled" : ""}><span class="option-key">${num(x)}</span></button>`).join("")}</div>
+      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px">${locked ? "Your answer is locked." : "Tap an option, or press 1–5."} ${oppAnswered ? `${esc(s.opponent?.name || "Your friend")} has answered.` : ""}</p></div>`;
   } else if (s.status === "discuss") {
     const both = s.host_ready && s.guest_ready, myReady = host ? s.host_ready : s.guest_ready;
     html += `<div class="card card-pad"><div class="between"><strong style="font-size:15px">Question ${s.current_index + 1} result</strong><strong id="time-left" class="num"></strong></div>
       ${timerHtml()}<div id="reveal" class="muted">Loading result…</div>
       <div class="row" style="margin-top:16px"><button id="ready" class="pill pill-brand" ${myReady || both ? "disabled" : ""}>${both ? "Starting…" : myReady ? "Waiting for friend" : "Ready"}</button>
       <button id="extend" class="pill pill-soft" ${s.discuss_extended ? "disabled" : ""}>+10s</button></div></div>${chatHtml()}`;
-  } else if (s.status === "finished") {
+  } else if (s.status === "finished" || s.status === "abandoned") {
     const meHost = s.me?.id === s.host_id, my = meHost ? s.host_score : s.guest_score, their = meHost ? s.guest_score : s.host_score;
-    html += `<div class="card center"><span class="chip">Duel finished</span><h1 style="font-size:30px;margin-top:14px">${my === their ? "It's a draw" : my > their ? "You win!" : "You lost this one"}</h1>
+    const ended = s.status === "abandoned";
+    const title = ended ? "Duel ended early" : my === their ? "It's a draw" : my > their ? "You win!" : "You lost this one";
+    html += `<div class="card center"><span class="chip">${ended ? "Someone left" : "Duel finished"}</span><h1 style="font-size:30px;margin-top:14px">${title}</h1>
       <p class="display num" style="font-size:22px;margin-top:8px">${my} — ${their}</p>
-      <div class="row" style="justify-content:center;margin-top:20px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill pill-soft" href="dashboard.html">Dashboard</a></div></div>${chatHtml()}`;
+      ${ended ? `<p class="muted" style="font-size:13px;margin-top:8px">Scores shown are from the questions played so far.</p>` : ""}
+      <div class="row" style="justify-content:center;margin-top:20px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill pill-soft" href="dashboard.html">Dashboard</a></div></div>${ended ? "" : chatHtml()}`;
   } else {
-    html += `<div class="card center"><h2>This duel was ended</h2><a class="pill pill-brand" href="dashboard.html" style="margin-top:16px">Dashboard</a></div>`;
+    html += `<div class="card center"><h2>This duel is no longer available</h2><a class="pill pill-brand" href="dashboard.html" style="margin-top:16px">Dashboard</a></div>`;
   }
 
   app.innerHTML = html;
@@ -282,9 +291,11 @@ function render() {
 function paintReveal() {
   const el = $("reveal"); if (!el || !reveal) return;
   const me = state.me || {}, op = state.opponent || {}, meHost = me.id === state.host_id;
-  const row = (name, r) => `<div class="who ${r?.choice ? (r.correct ? "good" : "bad") : ""}"><span>${esc(name)}</span><strong>${esc(r?.choice || "No answer")}</strong></div>`;
+  const keys = Array.isArray(reveal.correct) ? reveal.correct : (reveal.correct ? [reveal.correct] : []);
+  const answerText = !keys.length ? "—" : keys.length >= LETTERS.length ? "Any option" : keys.map(num).join(" or ");
+  const row = (name, r) => `<div class="who ${r?.choice ? (r.correct ? "good" : "bad") : ""}"><span>${esc(name)}</span><strong>${esc(r?.choice ? num(r.choice) : "No answer")}</strong></div>`;
   el.className = "";
-  el.innerHTML = `<p style="font-size:15px">Correct answer: <strong style="color:var(--ok)">${esc(reveal.correct || "—")}</strong></p>
+  el.innerHTML = `<p style="font-size:15px">Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong></p>
     ${row(meHost ? "You" : op.name || "Host", reveal.host)}${row(meHost ? op.name || "Guest" : "You", reveal.guest)}
     ${reveal.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(reveal.review)}</p>` : ""}
     ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}`;
@@ -340,6 +351,25 @@ function wire() {
   });
 }
 
+/* ---------- leave + keyboard ---------- */
+async function leave() {
+  const inLobby = state?.status === "lobby";
+  const msg = inLobby ? "Leave this lobby?" : "Leave now? The duel will end for both of you.";
+  if (!confirm(msg)) return;
+  const btn = $("leave-btn"); btn.disabled = true;
+  const { error } = await supabase.rpc("leave_duel", { p_duel: duelId });
+  btn.disabled = false;
+  if (error) { flash(error.message); return; }
+  location.href = "dashboard.html";
+}
+document.addEventListener("keydown", (e) => {
+  if (!state || state.status !== "question" || pending || iAnswered()) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const i = Number(e.key);
+  if (i >= 1 && i <= 5) document.querySelector(`[data-choice="${LETTERS[i - 1]}"]`)?.click();
+});
+
 /* ---------- boot ---------- */
 (async () => {
   try {
@@ -347,13 +377,7 @@ function wire() {
     if (!session) return;
     mountRail();
     mountTopbar({ tabs: [{ href: "dashboard.html", label: "Dashboard" }, { href: "subject.html", label: "Papers" }], search: false });
-    $("code").textContent = code ? `Code ${code}` : "Duel";
-    const panel = $("join-panel"), input = $("quick-join-code"), err = $("quick-join-error");
-    const go = () => goToCode(input.value, err);
-    $("show-join").addEventListener("click", () => { panel.classList.remove("hidden"); input.focus(); });
-    $("hide-join").addEventListener("click", () => panel.classList.add("hidden"));
-    $("quick-join-btn").addEventListener("click", go);
-    bindCodeInput(input, go);
+    $("leave-btn").addEventListener("click", leave);
     if (code) await join(); else showJoinForm();
   } catch (error) {
     console.error("Duel bootstrap error", error);
