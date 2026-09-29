@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duel — A/L Master</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<style>
+body{background:var(--bg)} .duel-wrap{max-width:900px;margin:0 auto;padding:20px}
+.duel-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.players{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
+.player{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--line)}
+.player-row{display:flex;align-items:center;gap:10px}.score{font-size:25px;font-weight:700}.vs{font-weight:700;color:var(--muted)}
+.timer{height:9px;border-radius:99px;background:var(--line);overflow:hidden;margin:14px 0}.timer i{display:block;height:100%;width:100%;transform-origin:left;background:currentColor}
+.question-img{width:100%;max-height:480px;object-fit:contain;background:#fff;border-radius:14px;border:1px solid var(--line)}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.answer{padding:15px;border:1px solid var(--line);background:var(--card);border-radius:13px;text-align:left;font:inherit;cursor:pointer}.answer b{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);margin-right:8px}.answer.selected{border-color:var(--brand,#5b4be7);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand,#5b4be7) 18%,transparent)}
+.answer:disabled{cursor:default}.reveal{padding:16px;border:1px solid var(--line);border-radius:14px;margin-top:14px}.choices{display:flex;gap:8px;flex-wrap:wrap}.choice{padding:8px 11px;border-radius:10px;background:var(--line)}.choice.good{outline:2px solid #22a06b}.choice.bad{outline:2px solid #d64545}
+.chat{border:1px solid var(--line);border-radius:14px;margin-top:14px;overflow:hidden}.chat-head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.messages{height:190px;overflow:auto;padding:10px}.msg{margin:7px 0;max-width:80%;padding:8px 10px;border-radius:12px;background:var(--line);font-size:13px}.msg.me{margin-left:auto}.chat-input{display:flex;gap:8px;padding:9px;border-top:1px solid var(--line)}.chat-input input{flex:1;min-width:0}.quick{display:flex;gap:5px;padding:7px 10px;overflow:auto}.quick button{border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 9px;white-space:nowrap}
+.hidden{display:none!important}.center{text-align:center;padding:48px 10px}.count{font-size:80px;font-weight:800;font-family:Poppins}
+@media(max-width:600px){.duel-wrap{padding:12px}.answers{grid-template-columns:1fr}.players{grid-template-columns:1fr auto 1fr}.player{padding:8px}.score{font-size:20px}.question-img{max-height:55vh}}
+</style>
+</head>
+<body>
+<div class="duel-wrap">
+  <div id="topbar"></div>
+  <div class="duel-top"><a href="dashboard.html" class="muted">← Dashboard</a><span id="code" class="chip"></span></div>
+  <main id="app"></main>
+</div>
+<script type="module">
+import { requireUser } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { dbError } from "./js/db.js";
+import { mountTopbar } from "./js/shell.js";
+
+const app=document.getElementById("app"), code=(new URLSearchParams(location.search).get("code")||"").toUpperCase();
+document.getElementById("code").textContent=code?`Code ${code}`:"";
+let session, duelId=null, state=null, timer=null, poll=null, channel=null, myChoice=null, answered=false, messages=[];
+const letters=["A","B","C","D","E"];
+
+function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
+function avatar(url){return url?`<img class="avatar" src="${esc(url)}" alt="">`:`<div class="avatar"></div>`;}
+function players(){
+ const me=state?.me||{}, op=state?.opponent||{};
+ const hs=state?.host_score||0, gs=state?.guest_score||0;
+ const myScore=me.id===state?.host_id?hs:gs, oppScore=me.id===state?.host_id?gs:hs;
+  return `<div class="players">
+   <div class="player"><div class="player-row">${avatar(me.avatar)}<div><strong>${esc(me.name||"You")}</strong><div class="muted" style="font-size:12px">You</div></div></div><div class="score" style="margin-top:6px">${myScore}</div></div>
+   <div class="vs">VS</div>
+   <div class="player"><div class="player-row">${avatar(op.avatar)}<div><strong>${esc(op.name||"Waiting…")}</strong><div class="muted" style="font-size:12px">${op.id?"Opponent":"Not joined"}</div></div></div><div class="score" style="margin-top:6px">${op.id?oppScore:0}</div></div>
+ </div>`;
+}
+
+async function loadState(){
+ if(!duelId)return;
+ const {data,error}=await supabase.rpc("get_duel_state",{p_duel:duelId});
+ if(error){app.innerHTML=`<div class="card card-pad">${esc(error.message)}</div>`;return;}
+ state=Array.isArray(data)?data[0]:data;
+ render();
+}
+
+function startClock(){
+ clearInterval(timer);
+ timer=setInterval(async()=>{
+   if(!state?.deadline)return;
+   const left=Math.max(0,new Date(state.deadline).getTime()-Date.now());
+   const total=state.status==="question"?state.seconds*1000:(state.status==="countdown"?3000:state.discuss_seconds*1000);
+   const bar=document.querySelector(".timer i"); if(bar) bar.style.transform=`scaleX(${Math.min(1,left/total)})`;
+   const label=document.getElementById("time-left"); if(label) label.textContent=`${Math.ceil(left/1000)}s`;
+   if(left<=0){clearInterval(timer);await supabase.rpc("advance_duel",{p_duel:duelId});await loadState();}
+ },100);
+}
+
+async function join(){
+ if(!code){app.innerHTML='<div class="card card-pad">No duel code was provided.</div>';return;}
+ const {data,error}=await supabase.rpc("join_duel",{p_code:code});
+ if(error){app.innerHTML=`<div class="card card-pad"><h2>Cannot join duel</h2><p class="muted" style="margin-top:8px">${esc(error.message)}</p></div>`;return;}
+ const row=Array.isArray(data)?data[0]:data; duelId=row.duel_id;
+ await loadState();
+ subscribe();
+}
+
+function subscribe(){
+ channel=supabase.channel("duel-"+duelId)
+  .on("postgres_changes",{event:"UPDATE",schema:"public",table:"duels",filter:`id=eq.${duelId}`},async()=>{await loadState();})
+  .on("postgres_changes",{event:"INSERT",schema:"public",table:"duel_messages",filter:`duel_id=eq.${duelId}`},async()=>{await loadMessages();})
+  .subscribe();
+ loadMessages();
+ clearInterval(poll); poll=setInterval(loadState,2000);
+}
+
+async function loadMessages(){
+ if(!duelId)return;
+ const {data,error}=await supabase.rpc("get_duel_messages",{p_duel:duelId});
+ if(!error){messages=data||[]; renderChat();}
+}
+function renderChat(){
+ const box=document.getElementById("messages"); if(!box)return;
+ box.innerHTML="";
+ messages.forEach(m=>{
+  const row=document.createElement("div"); row.className="msg"+(m.sender_id===session.user.id?" me":"");
+  row.textContent=m.body; box.appendChild(row);
+ });
+ box.scrollTop=box.scrollHeight;
+}
+async function send(body,kind="text"){
+ if(!body.trim())return;
+ const {error}=await supabase.rpc("send_duel_message",{p_duel:duelId,p_body:body,p_kind:kind});
+ if(error) alert(error.message); else await loadMessages();
+}
+function chat(){
+ return `<div class="chat">
+  <div class="chat-head"><strong>Discuss</strong><span class="muted" style="font-size:12px">Chat is locked during questions</span></div>
+  <div id="messages" class="messages"></div>
+  <div class="quick"><button data-msg="👏">👏</button><button data-msg="🔥">🔥</button><button data-msg="😅">😅</button><button data-msg="🤔 Explain?">🤔 Explain?</button><button data-msg="Good one">Good one</button></div>
+  <div class="chat-input"><input id="chat-text" maxlength="300" placeholder="Talk about the question…"><button id="chat-send" class="pill pill-brand">Send</button></div>
+ </div>`;
+}
+
+function render(){
+ if(!state)return;
+ const isHost=state.me.id===state.host_id;
+ const op=state.opponent;
+ let body=players();
+ if(state.status==="lobby"){
+  body+=`<div class="card card-pad center"><h1>Waiting for your friend</h1><p class="muted" style="margin:10px 0">Share code <strong>${esc(state.code)}</strong>. They can open the link and sign in.</p>
+   ${isHost?`<button id="start" class="pill pill-brand">Start duel</button>`:`<p class="muted">The host will start the duel.</p>`}</div>${chat()}`;
+ } else if(state.status==="countdown"){
+  body+=`<div class="card center"><div class="count" id="count">${Math.max(1,Math.ceil((new Date(state.deadline)-Date.now())/1000))}</div><h2>Get ready</h2><div class="timer"><i></i></div></div>`;
+ } else if(state.status==="question"){
+  const q=state.question;
+  if(state.next_image){const pre=new Image();pre.src=state.next_image;}
+  body+=`<div class="card card-pad"><div style="display:flex;justify-content:space-between"><strong>Question ${state.current_index+1} / ${state.question_count}</strong><strong id="time-left">${state.seconds}s</strong></div><div class="timer"><i></i></div>
+   <img class="question-img" src="${esc(q?.image||"")}" alt="Question ${state.current_index+1}">
+   <div class="answers">${letters.map(x=>`<button class="answer ${myChoice===x?"selected":""}" data-choice="${x}" ${answered?"disabled":""}><b>${x}</b> Answer ${x}</button>`).join("")}</div>
+   <p id="answered-note" class="muted" style="text-align:center;margin-top:12px">${answered?"Your answer is locked.":(state.host_answered&&state.guest_answered?"Both answered.":(state.host_answered||state.guest_answered)?`${esc(state.opponent?.name||"Your friend")} has answered.`:"")}</p>
+  </div>`;
+ } else if(state.status==="discuss"){
+  body+=`<div class="card card-pad"><div style="display:flex;justify-content:space-between"><strong>Question ${state.current_index+1} result</strong><strong id="time-left"></strong></div>
+    <div class="reveal" id="reveal">Loading result…</div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button id="ready" class="pill pill-brand">${state.host_ready&&state.guest_ready?"Starting…":"Ready"}</button><button id="extend" class="pill" ${state.discuss_extended?"disabled":""}>+10s</button></div>
+   </div>${chat()}`;
+  loadReveal();
+ } else if(state.status==="finished"){
+  const winner=state.host_score===state.guest_score?"Draw":(state.host_score>state.guest_score?"You win!":"Duel lost");
+  body+=`<div class="card card-pad center"><h1>${winner}</h1><p class="muted">${state.host_score} — ${state.guest_score}</p><div style="display:flex;justify-content:center;gap:8px;margin-top:14px"><button id="rematch" class="pill pill-brand">Rematch</button><a class="pill" href="dashboard.html">Dashboard</a></div></div>${chat()}`;
+  loadMessages();
+ }
+ app.innerHTML=body;
+ wire();
+ if(["countdown","question","discuss"].includes(state.status))startClock();
+ if(state.status==="lobby"||state.status==="discuss"||state.status==="finished")loadMessages();
+}
+async function loadReveal(){
+ const {data,error}=await supabase.rpc("get_duel_reveal",{p_duel:duelId});
+ const r=Array.isArray(data)?data[0]:data, el=document.getElementById("reveal"); if(!el)return;
+ if(error){el.textContent=error.message;return;}
+ const h=r.host,g=r.guest;
+ el.innerHTML=`<p><strong>Correct answer: ${esc(r.correct)}</strong></p>
+  <div class="choices" style="margin-top:10px"><span class="choice ${h?.correct?"good":"bad"}">Host: ${esc(h?.choice||"—")}</span><span class="choice ${g?.correct?"good":"bad"}">Guest: ${esc(g?.choice||"—")}</span></div>
+  ${r.review?`<p class="muted" style="margin-top:12px;line-height:1.6">${esc(r.review)}</p>`:""}`;
+}
+function wire(){
+ document.getElementById("start")?.addEventListener("click",async()=>{await supabase.rpc("start_duel",{p_duel:duelId});await loadState();});
+ document.querySelectorAll("[data-choice]").forEach(b=>b.addEventListener("click",async()=>{
+  if(answered)return; answered=true;myChoice=b.dataset.choice;render();
+  const q=state.question; const {error}=await supabase.rpc("submit_duel_answer",{p_duel:duelId,p_question:q.id,p_choice:myChoice});
+  if(error){answered=false;alert(error.message);await loadState();} else {await loadState();}
+ }));
+ document.getElementById("ready")?.addEventListener("click",async()=>{await supabase.rpc("duel_ready",{p_duel:duelId});await loadState();});
+ document.getElementById("extend")?.addEventListener("click",async()=>{await supabase.rpc("extend_discuss",{p_duel:duelId});await loadState();});
+ document.getElementById("chat-send")?.addEventListener("click",()=>{const i=document.getElementById("chat-text");send(i.value);i.value="";});
+ document.getElementById("chat-text")?.addEventListener("keydown",e=>{if(e.key==="Enter"){const i=e.currentTarget;send(i.value);i.value="";}});
+ document.querySelectorAll("[data-msg]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.msg,"reaction")));
+ document.getElementById("rematch")?.addEventListener("click",async()=>{const {data,error}=await supabase.rpc("create_rematch",{p_duel:duelId});if(error)alert(error.message);else location.href=`duel.html?code=${encodeURIComponent((Array.isArray(data)?data[0]:data).code)}`;});
+}
+session=await requireUser();
+if(session){
+ await mountTopbar?.();
+ if(code) await join();
+}
+</script>
+</body>
+</html>
