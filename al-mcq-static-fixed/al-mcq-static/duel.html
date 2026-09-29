@@ -26,7 +26,7 @@ body{background:var(--bg)} .duel-wrap{max-width:900px;margin:0 auto;padding:20px
 <div class="duel-wrap">
   <div id="topbar"></div>
   <div class="duel-top"><a href="dashboard.html" class="muted">← Dashboard</a><span id="code" class="chip"></span></div>
-  <main id="app"></main>
+  <main id="app"><div class="card card-pad center"><h2>Loading duel…</h2><p class="muted">Connecting to the duel room.</p></div></main>
 </div>
 <script type="module">
 import { requireUser } from "./js/auth.js";
@@ -77,10 +77,20 @@ function players(){
 
 async function loadState(){
  if(!duelId)return;
- const {data,error}=await supabase.rpc("get_duel_state",{p_duel:duelId});
- if(error){app.innerHTML=`<div class="card card-pad">${esc(error.message)}</div>`;return;}
- state=Array.isArray(data)?data[0]:data;
- render();
+ try {
+   const {data,error}=await supabase.rpc("get_duel_state",{p_duel:duelId});
+   if(error) throw error;
+   state=Array.isArray(data)?data[0]:data;
+   if(typeof state === "string") { try { state=JSON.parse(state); } catch(e){} }
+   if(!state || !state.id) throw new Error("The duel state was empty. Make sure migration-duels.sql has been run completely.");
+   state.me=state.me||{id:session?.user?.id||"",name:"You",avatar:null};
+   state.opponent=state.opponent||null;
+   render();
+ } catch(error) {
+   console.error("Duel state error",error);
+   app.innerHTML=`<div class="card card-pad center"><h2>Could not load duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message||String(error))}</p><button id="retry-state" class="pill pill-brand">Retry</button><a class="pill" href="dashboard.html" style="margin-left:6px">Dashboard</a></div>`;
+   document.getElementById("retry-state")?.addEventListener("click",loadState);
+ }
 }
 
 function startClock(){
@@ -148,7 +158,7 @@ function chat(){
 
 function render(){
  if(!state)return;
- const isHost=state.me.id===state.host_id;
+ const isHost=(state.me?.id||session?.user?.id)===state.host_id;
  const op=state.opponent;
  let body=players();
  if(state.status==="lobby"){
@@ -203,11 +213,18 @@ function wire(){
  document.querySelectorAll("[data-msg]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.msg,"reaction")));
  document.getElementById("rematch")?.addEventListener("click",async()=>{const {data,error}=await supabase.rpc("create_rematch",{p_duel:duelId});if(error)alert(error.message);else location.href=`duel.html?code=${encodeURIComponent((Array.isArray(data)?data[0]:data).code)}`;});
 }
-session=await requireUser();
-if(session){
- await mountTopbar?.();
- if(code) await join();
-}
+(async()=>{
+ try {
+   session=await requireUser();
+   if(!session) return;
+   try { await mountTopbar(); } catch(e) { console.warn("Topbar failed",e); }
+   if(code) await join(); else showJoinForm();
+ } catch(error) {
+   console.error("Duel bootstrap error",error);
+   app.innerHTML=`<div class="card card-pad center"><h2>Unable to open duel</h2><p class="muted" style="margin:12px 0">${esc(error?.message||String(error))}</p><button id="retry-page" class="pill pill-brand">Retry</button></div>`;
+   document.getElementById("retry-page")?.addEventListener("click",()=>location.reload());
+ }
+})();
 </script>
 </body>
 </html>
