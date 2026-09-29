@@ -213,7 +213,11 @@ function maybeAdvance() {
   if (advancing === key) return;
   advancing = key;
   supabase.rpc("advance_duel", { p_duel: duelId }).then(({ error }) => {
-    if (error) console.warn("advance_duel", error.message);
+    if (error) {
+      console.warn("advance_duel", error.message);
+      if (/does not exist|schema cache|function/i.test(error.message)) flash("The duel can't move on: the database update is incomplete. Run migration-duels-v3.sql, then migration-duels-v4.sql, in Supabase. (" + error.message + ")");
+      else flash("Couldn't move to the next step: " + error.message);
+    }
     setTimeout(() => { if (advancing === key) advancing = ""; }, 1500); // allow a retry if nothing moved
     loadState();
   });
