@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duel Chat Reports — Admin</title><link rel="stylesheet" href="../../css/styles.css"><script src="../../config.js"></script></head>
+<body><div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+<div class="row" id="admin-header" style="margin-bottom:24px"></div><h1 style="font-size:30px;margin-bottom:20px">Duel chat reports</h1><div class="card" id="list"></div></div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { dbError } from "../../js/db.js";
+const session=await requireStaff(); if(!session) throw new Error("redirecting"); mountAdminShell("Duel chat reports");
+async function load(){
+ const {data,error}=await supabase.from("duel_message_reports").select("id,reason,created_at,message_id,duel_messages(body,sender_id,created_at,duel_id),profiles(full_name)").order("created_at",{ascending:false}).limit(100);
+ if(dbError(error,"loading duel chat reports"))return;
+ const el=document.getElementById("list");
+ if(!data?.length){el.innerHTML='<p class="card-pad muted">No reported duel messages.</p>';return;}
+ el.innerHTML=data.map(r=>`<div style="padding:16px 24px;border-top:1px solid var(--hairline)"><p style="font-size:14px">${esc(r.duel_messages?.body||"")}</p><p class="muted" style="font-size:12px;margin-top:6px">Reason: ${esc(r.reason||"Not provided")} · ${new Date(r.created_at).toLocaleString()}</p></div>`).join("");
+}
+function esc(s){const d=document.createElement("div");d.textContent=s||"";return d.innerHTML}
+load();
+</script></body></html>
