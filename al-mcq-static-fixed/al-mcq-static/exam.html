@@ -118,7 +118,7 @@
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { CHOICES, clock, qs } from "./js/format.js";
+import { CHOICES, clock, qs, esc } from "./js/format.js";
 import { dbError, toast } from "./js/db.js";
 
 const attemptId = qs("attempt");
@@ -169,7 +169,8 @@ document.getElementById("pause-overlay").classList.toggle("hidden", !paused);
 function question() { return questions[index]; }
 function answeredCount() { return Object.keys(answers).length; }
 
-async function submit() {
+let lastAutoTry = 0;
+async function submit(auto = false) {
   if (submitted) return;
   submitted = true;
   document.getElementById("confirm-submit").textContent = "Marking…";
@@ -177,6 +178,7 @@ async function submit() {
   if (error && !String(error.message).includes("already submitted")) {
     submitted = false;
     document.getElementById("confirm-submit").textContent = "Submit";
+    if (auto) return;               // timer ran out and the network failed: quietly retry in a few seconds
     alert(error.message);
     return;
   }
@@ -191,7 +193,7 @@ setInterval(() => {
   document.getElementById("timer").textContent = clock(left);
   document.getElementById("timer").style.color = left < 300 ? "var(--bad)" : "var(--brand)";
   document.getElementById("timer").style.background = left < 300 ? "rgba(240,71,108,.1)" : "var(--brand-soft)";
-  if (left <= 0) submit();
+  if (left <= 0 && Date.now() - lastAutoTry > 5000) { lastAutoTry = Date.now(); submit(true); }
 }, 1000);
 
 async function choose(choice) {
@@ -211,6 +213,8 @@ async function revealAnswer() {
   const { data, error } = await supabase.rpc("reveal_answer", { p_attempt_id: attemptId, p_question_id: question().id });
   if (dbError(error, "checking answer")) return;
   reveal = Array.isArray(data) ? data[0] : data;
+  // the answer key may come back as one letter or a list of letters — always work with a list
+  reveal.correct = Array.isArray(reveal.correct) ? reveal.correct : (reveal.correct ? [reveal.correct] : []);
   renderOptions();
   renderPracticeArea();
 }
@@ -266,8 +270,8 @@ function renderPracticeArea() {
         ${reveal.is_correct ? "Correct" : (reveal.correct || []).length === 0 ? "This question has no correct answer (voided)."
           : (reveal.correct || []).length === CHOICES.length ? "Any option was correct here."
           : `Correct answer is ${reveal.correct.map(c => CHOICES.indexOf(c) + 1).join(" or ")}`}</p>
-      ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${reveal.review_text}</p>` : ""}
-      ${reveal.review_image_url ? `<img src="${reveal.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
+      ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(reveal.review_text)}</p>` : ""}
+      ${reveal.review_image_url ? `<img src="${esc(reveal.review_image_url)}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
     </div>`;
   }
 }
@@ -303,7 +307,7 @@ function openConfirm() {
   document.getElementById("confirm-modal").classList.remove("hidden");
 }
 document.getElementById("confirm-cancel").addEventListener("click", () => document.getElementById("confirm-modal").classList.add("hidden"));
-document.getElementById("confirm-submit").addEventListener("click", submit);
+document.getElementById("confirm-submit").addEventListener("click", () => submit());
 
 document.getElementById("pause-btn").addEventListener("click", async () => {
   const btn = document.getElementById("pause-btn");
@@ -372,11 +376,14 @@ document.getElementById("report-submit").addEventListener("click", async () => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (!document.getElementById("nav-modal").classList.contains("hidden")) return;
-  if (!document.getElementById("confirm-modal").classList.contains("hidden")) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;   // e.g. typing in "Report a problem"
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const modalOpen = ["nav-modal", "confirm-modal", "exit-modal", "pause-overlay", "report-modal"]
+    .some(id => !document.getElementById(id).classList.contains("hidden"));
+  if (modalOpen) return;
   const k = e.key.toUpperCase();
   if (CHOICES.includes(k)) choose(k);
-  else if (/^[1-5]$/.test(e.key) && CHOICES[Number(e.key) - 1]) choose(CHOICES[Number(e.key) - 1]);
+  else if (/^[1-5]$/.test(e.key)) choose(CHOICES[Number(e.key) - 1]);
   if (e.key === "ArrowRight") go(index + 1);
   if (e.key === "ArrowLeft") go(index - 1);
 });
