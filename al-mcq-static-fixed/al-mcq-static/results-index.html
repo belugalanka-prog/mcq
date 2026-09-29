@@ -27,13 +27,13 @@ mountRail();
 mountTopbar({ tabs: [{href:"results-index.html",label:"My results"},{href:"dashboard.html",label:"Dashboard"}] });
 
 const { data: attempts, error: attemptsError } = await supabase.from("attempts")
-  .select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
+  .select("id,percentage,score,time_taken_seconds,completed_at,topic,papers(title,subject)")
   .eq("user_id", session.user.id).not("completed_at","is",null).order("completed_at",{ascending:false});
 dbError(attemptsError, "loading your results");
 
 document.getElementById("list").innerHTML = attempts?.length ? attempts.map(a => `
   <a href="results.html?attempt=${a.id}" class="row between" style="border-top:1px solid var(--hairline);padding:16px 24px;gap:16px">
-    <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.papers?.title)}</p>
+    <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.papers?.title || a.topic || "Practice")}</p>
       <p class="num muted" style="margin-top:2px;font-size:12px">${new Date(a.completed_at).toLocaleDateString()} · ${clock(a.time_taken_seconds||0)}</p></div>
     <div class="bar" style="width:100px"><span style="width:${a.percentage||0}%"></span></div>
     <p class="num" style="font-size:15px;font-weight:600">${a.percentage}%</p>
