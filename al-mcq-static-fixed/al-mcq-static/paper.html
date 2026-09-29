@@ -166,7 +166,7 @@ if (!session) {
       p_paper_id: paper.id,
       p_question_count: duelCount,
       p_seconds: duelSeconds,
-      p_discuss: 300,
+      p_discuss: 60,
     });
     if (error) {
       out.style.display = "block"; out.textContent = error.message; out.style.color = "var(--bad)";
