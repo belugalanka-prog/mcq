@@ -6,6 +6,7 @@
 -- 0a. Your database may already have older versions of some of these functions with a different
 --     return type (Postgres refuses to replace those), so remove them first. They are re-created below.
 drop function if exists _duel_record(uuid, uuid, answer_choice, int);
+drop function if exists _duel_keys(uuid);
 drop function if exists save_duel_choice(uuid, uuid, answer_choice);
 drop function if exists submit_duel_answer(uuid, uuid, answer_choice);
 drop function if exists advance_duel(uuid);
@@ -13,6 +14,20 @@ drop function if exists get_duel_state(uuid);
 drop function if exists leave_duel(uuid);
 drop function if exists create_rematch(uuid);
 drop function if exists create_duel(uuid, int, int);
+
+-- 0b. The real answer key. Your admin panel stores it in questions.correct_answers (a list: one or more
+--     correct letters, all five = "any answer", empty = voided). The old single questions.correct_answer
+--     column is only used as a fallback when that list is empty.
+create or replace function _duel_keys(p_question uuid)
+returns text[] language sql stable security definer set search_path=public as $$
+  select case
+    when q.correct_answers is not null and cardinality(q.correct_answers) > 0 then q.correct_answers::text[]
+    when q.correct_answer is not null then array[q.correct_answer::text]
+    else '{}'::text[] end
+  from questions q where q.id = p_question
+$$;
+-- must not be callable from the browser (it would leak answers)
+revoke all on function _duel_keys(uuid) from public, anon, authenticated;
 
 -- 0. New columns ------------------------------------------------------------
 alter table duels add column if not exists host_choice answer_choice;   -- unlocked pick (changeable)
@@ -30,13 +45,13 @@ update duels set discuss_seconds = 300 where status in ('lobby','countdown','que
 -- 1. Internal helper: record a locked answer + score it ----------------------
 create or replace function _duel_record(p_duel uuid, p_uid uuid, p_choice answer_choice, p_ms int)
 returns void language plpgsql security definer set search_path=public as $$
-declare d duels; qid uuid; q_correct answer_choice; correct boolean; pts int; ishost boolean;
+declare d duels; qid uuid; keys text[]; correct boolean; pts int; ishost boolean;
 begin
   select * into d from duels where id=p_duel;
   qid := d.question_ids[d.current_index+1];
   ishost := d.host_id = p_uid;
-  select correct_answer into q_correct from questions where id=qid;
-  correct := (q_correct is not null and q_correct = p_choice);
+  keys := _duel_keys(qid);
+  correct := (p_choice is not null and cardinality(keys) > 0 and p_choice::text = any(keys));
   pts := case when correct then 10 + least(5, greatest(0,
            floor((d.seconds_per_question*1000-p_ms)::numeric/(d.seconds_per_question*200))::int)) else 0 end;
 
@@ -201,7 +216,7 @@ begin
   return q;
 end $$;
 
--- 8. New duels only pick questions that HAVE a correct answer configured
+-- 8. New duels only pick questions that HAVE a correct answer configured (voided ones are skipped)
 create or replace function create_duel(p_paper_id uuid, p_question_count int default 10, p_seconds int default 45)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare qids uuid[]; did uuid; c text; n int;
@@ -210,11 +225,11 @@ begin
   if exists(select 1 from profiles where id=auth.uid() and is_suspended) then raise exception 'Your account is suspended'; end if;
   if p_question_count not between 5 and 20 then raise exception 'Question count must be 5–20'; end if;
   if p_seconds not between 15 and 120 then raise exception 'Time per question must be 15–120 seconds'; end if;
-  select count(*) into n from questions where paper_id=p_paper_id and correct_answer is not null;
+  select count(*) into n from questions where paper_id=p_paper_id and cardinality(_duel_keys(id)) > 0;
   if n < 1 then raise exception 'This paper has no questions with a correct answer set'; end if;
   p_question_count := least(p_question_count,n);
   select array_agg(id order by random()) into qids from (
-    select id from questions where paper_id=p_paper_id and correct_answer is not null order by random() limit p_question_count) s;
+    select id from questions where paper_id=p_paper_id and cardinality(_duel_keys(id)) > 0 order by random() limit p_question_count) s;
   c := _duel_code();
   insert into duels(code,paper_id,host_id,question_ids,question_count,seconds_per_question)
   values(c,p_paper_id,auth.uid(),qids,p_question_count,p_seconds)
@@ -230,6 +245,8 @@ end $$;
 drop function if exists advance_duel(uuid);
 drop function if exists get_duel_review(uuid);
 drop function if exists get_duel_history(int);
+drop function if exists get_duel_reveal(uuid);
+drop function if exists _duel_rescore(uuid);
 
 -- 1. A missed question now gets a real duel_answers row (selected = null, is_correct = false)
 alter table duel_answers alter column selected drop not null;
@@ -274,6 +291,7 @@ begin
     end if;
 
   elsif d.status='discuss' and (now()>=d.phase_deadline or (d.host_ready and d.guest_ready)) then
+    perform _duel_rescore(p_duel);
     idx := d.current_index+1;
     if idx>=d.question_count then
       update duels set status='finished', finished_at=now() where id=p_duel;
@@ -300,11 +318,11 @@ begin
       'index', t.ord-1,
       'number', q.question_number,
       'image', q.question_image_url,
-      'correct', q.correct_answer::text,
+      'correct', to_jsonb(_duel_keys(q.id)),
       'review', coalesce(q.review_text,''),
       'review_image', q.review_image_url,
-      'host',  (select jsonb_build_object('choice',a.selected::text,'correct',coalesce(a.is_correct,false)) from duel_answers a where a.duel_id=d.id and a.question_id=q.id and a.user_id=d.host_id limit 1),
-      'guest', (select jsonb_build_object('choice',a.selected::text,'correct',coalesce(a.is_correct,false)) from duel_answers a where a.duel_id=d.id and a.question_id=q.id and a.user_id=d.guest_id limit 1)
+      'host',  (select jsonb_build_object('choice',a.selected::text,'correct',coalesce(a.selected is not null and a.selected::text = any(_duel_keys(q.id)),false)) from duel_answers a where a.duel_id=d.id and a.question_id=q.id and a.user_id=d.host_id limit 1),
+      'guest', (select jsonb_build_object('choice',a.selected::text,'correct',coalesce(a.selected is not null and a.selected::text = any(_duel_keys(q.id)),false)) from duel_answers a where a.duel_id=d.id and a.question_id=q.id and a.user_id=d.guest_id limit 1)
     ) as item
     from unnest(d.question_ids) with ordinality as t(qid, ord)
     join questions q on q.id=t.qid
@@ -333,3 +351,53 @@ returns table (
   order by d.created_at desc
   limit least(greatest(p_limit,1),200)
 $$;
+
+-- 5. Scores are recomputed from the answers against the CURRENT answer key.
+--    (If a question's key is fixed in the admin panel after players answered, points now follow it.)
+create or replace function _duel_rescore(p_duel uuid)
+returns void language plpgsql security definer set search_path=public as $$
+declare d duels; hs int; gs int;
+begin
+  select * into d from duels where id=p_duel;
+  if not found then return; end if;
+  update duel_answers a
+     set is_correct = (a.selected is not null and a.selected::text = any(_duel_keys(q.id)))
+    from questions q
+   where a.duel_id=p_duel and q.id=a.question_id
+     and a.is_correct is distinct from (a.selected is not null and a.selected::text = any(_duel_keys(q.id)));
+  select coalesce(sum(case when a.is_correct then 10 + least(5,greatest(0,
+           floor((d.seconds_per_question*1000-a.ms_taken)::numeric/(d.seconds_per_question*200))::int)) else 0 end),0)::int
+    into hs from duel_answers a where a.duel_id=p_duel and a.user_id=d.host_id;
+  select coalesce(sum(case when a.is_correct then 10 + least(5,greatest(0,
+           floor((d.seconds_per_question*1000-a.ms_taken)::numeric/(d.seconds_per_question*200))::int)) else 0 end),0)::int
+    into gs from duel_answers a where a.duel_id=p_duel and a.user_id=d.guest_id;
+  if hs is distinct from d.host_score or gs is distinct from d.guest_score then
+    update duels set host_score=hs, guest_score=gs where id=p_duel;
+  end if;
+end $$;
+revoke all on function _duel_rescore(uuid) from public, anon, authenticated;
+
+-- 6. Reveal: rescore first, so what players see always matches the current key
+create or replace function get_duel_reveal(p_duel uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare d duels; qid uuid; q questions; ha duel_answers; ga duel_answers; myid uuid := auth.uid();
+begin
+  select * into d from duels where id=p_duel and (host_id=myid or guest_id=myid);
+  if not found then raise exception 'Duel not found'; end if;
+  if d.status not in ('discuss','finished') then raise exception 'Reveal is not ready'; end if;
+  perform _duel_rescore(p_duel);
+  qid := d.question_ids[d.current_index+1];
+  select * into q from questions where id=qid;
+  if not found then raise exception 'Question not found'; end if;
+  select * into ha from duel_answers where duel_id=d.id and question_id=qid and user_id=d.host_id limit 1;
+  select * into ga from duel_answers where duel_id=d.id and question_id=qid and user_id=d.guest_id limit 1;
+  return jsonb_build_object(
+    'question_id', qid,
+    'correct', to_jsonb(_duel_keys(qid)),
+    'review', coalesce(q.review_text,''),
+    'review_image', q.review_image_url,
+    'host', case when ha.id is null then jsonb_build_object('choice',null,'correct',false,'ms',null)
+                 else jsonb_build_object('choice',ha.selected::text,'correct',coalesce(ha.is_correct,false),'ms',ha.ms_taken) end,
+    'guest', case when ga.id is null then jsonb_build_object('choice',null,'correct',false,'ms',null)
+                  else jsonb_build_object('choice',ga.selected::text,'correct',coalesce(ga.is_correct,false),'ms',ga.ms_taken) end);
+end $$;
