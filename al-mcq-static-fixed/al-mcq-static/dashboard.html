@@ -126,8 +126,15 @@
         <a href="leaderboard.html" class="pill pill-soft" style="width:100%;justify-content:center;margin-top:16px">See the rankings</a>
       </div>
       <div class="card card-pad">
-        <div class="card-head"><h2>Duels</h2><a href="duel.html" style="font-size:13px;color:var(--brand)">Join with code</a></div>
-        <div id="recent-duels"><p class="muted" style="font-size:13px">Loading…</p></div>
+        <div class="card-head"><h2>Duels</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">Got a code from a friend? Enter it to jump straight in.</p>
+        <div class="row" style="flex-wrap:nowrap;gap:8px">
+          <input id="duel-join-code" class="field" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K3P9"
+                 style="text-align:center;letter-spacing:.25em;font-weight:600;text-transform:uppercase;min-width:0">
+          <button id="duel-join-btn" class="pill pill-brand" type="button">Join</button>
+        </div>
+        <p id="duel-join-err" style="margin-top:6px;font-size:12.5px;color:var(--bad)"></p>
+        <div id="recent-duels" style="margin-top:6px"><p class="muted" style="font-size:13px">Loading…</p></div>
       </div>
     </div>
   </div>
@@ -192,6 +199,19 @@ import { dbError } from "./js/db.js";
 mountRail();
 mountFooter(document.getElementById("footer"));
 
+// Join a friend's duel straight from the dashboard.
+{
+  const input = document.getElementById("duel-join-code"), err = document.getElementById("duel-join-err");
+  const go = () => {
+    const v = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (v.length !== 6) { err.textContent = "Enter the 6-character code."; return; }
+    location.href = `duel.html?code=${encodeURIComponent(v)}`;
+  };
+  input.addEventListener("input", () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); err.textContent = ""; });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  document.getElementById("duel-join-btn").addEventListener("click", go);
+}
+
 const { data: announcements, error: announcementsError } = await supabase.from("announcements")
   .select("title,body").eq("is_active", true).order("created_at", { ascending: false }).limit(3);
 dbError(announcementsError, "loading announcements", { silent: true });
@@ -242,13 +262,13 @@ if (session) {
     { data: doneRows },
   ] = await Promise.all([
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
-    supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
+    supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,topic,papers(title,subject)")
       .eq("user_id", user.id).not("completed_at","is",null).order("completed_at",{ascending:false}).limit(4),
     supabase.rpc("get_active_attempt").maybeSingle(),
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
     supabase.from("papers").select("id,title,subject,paper_type,year,duration_minutes,total_questions")
       .eq("is_published", true).order("created_at", { ascending: false }).limit(16),
-    supabase.from("duels").select("id,code,status,host_id,guest_id,host_score,guest_score,created_at").or(`host_id.eq.${user.id},guest_id.eq.${user.id}`).order("created_at",{ascending:false}).limit(4),
+    supabase.from("duels").select("id,code,status,host_id,guest_id,host_score,guest_score,created_at").or(`host_id.eq.${user.id},guest_id.eq.${user.id}`).neq("status","abandoned").order("created_at",{ascending:false}).limit(4),
     supabase.from("attempts").select("paper_id").eq("user_id", user.id),
   ]);
   [statsError, attemptsError, runningError, topicsError, recentPapersError, duelsError].forEach((e) => dbError(e, "loading your dashboard"));
@@ -261,7 +281,7 @@ if (session) {
     return `<a href="duel.html?code=${encodeURIComponent(d.code)}" class="row" style="justify-content:space-between;border-top:1px solid var(--hairline);padding:12px 0">
       <div><p style="font-size:14px;font-weight:500" class="num">${mine} — ${theirs}</p><p class="muted" style="font-size:12px">${esc(d.code)}</p></div>
       <span class="chip" ${live ? "" : `style="background:var(--hairline);color:var(--muted)"`}>${result}</span></a>`;
-  }).join("") : `<p class="muted" style="font-size:13px">No duels yet. Open any paper and tap "Duel a friend".</p>`;
+  }).join("") : `<p class="muted" style="font-size:13px">No duels yet. To host one, open any paper and tap "Duel a friend".</p>`;
 
   const KIND = { past:"Past paper", topic:"Topic paper", model:"Model paper", teacher:"Teacher paper", special:"Special MCQ" };
   const doneIds = new Set((doneRows ?? []).map(r => r.paper_id));
@@ -311,7 +331,7 @@ if (session) {
 
   document.getElementById("attempts").innerHTML = attempts?.length ? attempts.map(a => `
     <a href="results.html?attempt=${a.id}" class="row" style="justify-content:space-between;border-top:1px solid var(--hairline);padding:14px 0;gap:16px">
-      <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.papers?.title)}</p>
+      <div style="flex:1"><p style="font-size:14px;font-weight:500">${esc(a.papers?.title || a.topic || "Practice")}</p>
         <p class="num muted" style="margin-top:2px;font-size:12px">${clock(a.time_taken_seconds||0)} taken</p></div>
       <div class="bar" style="width:100px"><span style="width:${a.percentage||0}%"></span></div>
       <p class="num" style="font-size:14px;font-weight:600">${a.percentage}%</p>
