@@ -458,7 +458,7 @@ function paintReview() {
     detail = `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)">
       <p style="font-size:15px;font-weight:600">Question ${r.index + 1}</p>
       <img class="qimg" src="${esc(r.image || "")}" alt="Question ${r.index + 1}" style="width:100%;border-radius:14px;margin-top:10px;display:block">
-      <p style="font-size:15px;margin-top:12px">${r.correct ? `Correct answer: <strong style="color:var(--ok)">${esc(num(r.correct))}</strong>` : `<strong style="color:var(--warn)">No correct answer is set for this question</strong>`}</p>
+      <p style="font-size:15px;margin-top:12px">${keysOf(r.correct).length ? `Correct answer: <strong style="color:var(--ok)">${esc(answerTextOf(r.correct))}</strong>` : `<strong style="color:var(--warn)">No correct answer for this question (voided)</strong>`}</p>
       ${rowHtml("You", mine(r))}${rowHtml(op.name || "Opponent", meHost ? r.guest : r.host)}
       ${r.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(r.review)}</p>` : ""}
       ${r.review_image ? `<img class="qimg" src="${esc(r.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
@@ -472,17 +472,18 @@ function paintReview() {
   el.querySelectorAll("[data-rv]").forEach((b) => b.addEventListener("click", () => { reviewIdx = Number(b.dataset.rv); paintReview(); }));
 }
 
+const keysOf = (c) => (Array.isArray(c) ? c : c ? [c] : []);
+const answerTextOf = (c) => { const k = keysOf(c); return !k.length ? "—" : k.length >= LETTERS.length ? "Any option" : k.map(num).join(" or "); };
 const rowHtml = (name, r) => `<div class="who ${r?.choice ? (r.correct ? "good" : "bad") : ""}"><span>${esc(name)}</span><strong>${esc(r?.choice ? num(r.choice) : "No answer")}</strong></div>`;
 
 function paintReveal() {
   const el = $("reveal"); if (!el || !reveal) return;
   const me = state.me || {}, op = state.opponent || {}, meHost = me.id === state.host_id;
-  const keys = Array.isArray(reveal.correct) ? reveal.correct : (reveal.correct ? [reveal.correct] : []);
-  const answerText = !keys.length ? "—" : keys.length >= LETTERS.length ? "Any option" : keys.map(num).join(" or ");
+  const keys = keysOf(reveal.correct), answerText = answerTextOf(reveal.correct);
   const row = rowHtml;
   el.className = "";
   const noKey = !keys.length;
-  el.innerHTML = `<p style="font-size:15px">${noKey ? `<strong style="color:var(--warn)">No correct answer is set for this question</strong> — it scores no points for either player.` : `Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong>`}</p>
+  el.innerHTML = `<p style="font-size:15px">${noKey ? `<strong style="color:var(--warn)">This question has no correct answer (voided)</strong> — it scores no points for either player.` : `Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong>`}</p>
     ${row(meHost ? "You" : op.name || "Host", reveal.host)}${row(meHost ? op.name || "Guest" : "You", reveal.guest)}
     ${reveal.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(reveal.review)}</p>` : ""}
     ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
