@@ -36,6 +36,29 @@ import { mountTopbar } from "./js/shell.js";
 
 const app=document.getElementById("app"), code=(new URLSearchParams(location.search).get("code")||"").toUpperCase();
 document.getElementById("code").textContent=code?`Code ${code}`:"";
+
+function showJoinForm(message=""){
+ app.innerHTML=`<div class="card card-pad" style="max-width:520px;margin:30px auto">
+   <h1 style="margin-bottom:8px">Join a duel</h1>
+   <p class="muted" style="margin-bottom:18px">Enter the 6-character code your friend shared with you.</p>
+   <label for="join-code" class="muted" style="display:block;font-size:13px;margin-bottom:6px">Duel code</label>
+   <input id="join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"
+     placeholder="e.g. A7K3P9"
+     style="width:100%;box-sizing:border-box;text-align:center;letter-spacing:.22em;font-size:22px;font-weight:700;text-transform:uppercase;padding:13px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:inherit">
+   <button id="join-code-btn" class="pill pill-brand" style="width:100%;margin-top:12px">Join duel</button>
+   ${message?`<p class="muted" style="margin-top:12px">${esc(message)}</p>`:""}
+ </div>`;
+ const input=document.getElementById("join-code"), btn=document.getElementById("join-code-btn");
+ const go=()=>{
+   const value=(input.value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+   if(value.length!==6){input.focus();return;}
+   location.href=`duel.html?code=${encodeURIComponent(value)}`;
+ };
+ btn.addEventListener("click",go);
+ input.addEventListener("input",()=>{input.value=input.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);});
+ input.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+ input.focus();
+}
 let session, duelId=null, state=null, timer=null, poll=null, channel=null, myChoice=null, answered=false, messages=[];
 const letters=["A","B","C","D","E"];
 
@@ -72,10 +95,15 @@ function startClock(){
  },100);
 }
 
-async function join(){
- if(!code){app.innerHTML='<div class="card card-pad">No duel code was provided.</div>';return;}
- const {data,error}=await supabase.rpc("join_duel",{p_code:code});
- if(error){app.innerHTML=`<div class="card card-pad"><h2>Cannot join duel</h2><p class="muted" style="margin-top:8px">${esc(error.message)}</p></div>`;return;}
+async function join(joinCode=code){
+ if(!joinCode){showJoinForm();return;}
+ const normalizedCode=String(joinCode).toUpperCase().trim();
+ const {data,error}=await supabase.rpc("join_duel",{p_code:normalizedCode});
+ if(error){
+   document.getElementById("code").textContent="";
+   showJoinForm(error.message);
+   return;
+ }
  const row=Array.isArray(data)?data[0]:data; duelId=row.duel_id;
  await loadState();
  subscribe();
