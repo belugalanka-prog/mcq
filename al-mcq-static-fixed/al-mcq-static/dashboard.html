@@ -268,20 +268,23 @@ if (session) {
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
     supabase.from("papers").select("id,title,subject,paper_type,year,duration_minutes,total_questions")
       .eq("is_published", true).order("created_at", { ascending: false }).limit(16),
-    supabase.from("duels").select("id,code,status,host_id,guest_id,host_score,guest_score,created_at").or(`host_id.eq.${user.id},guest_id.eq.${user.id}`).neq("status","abandoned").order("created_at",{ascending:false}).limit(4),
+    supabase.rpc("get_duel_history", { p_limit: 4 }),
     supabase.from("attempts").select("paper_id").eq("user_id", user.id),
   ]);
   [statsError, attemptsError, runningError, topicsError, recentPapersError, duelsError].forEach((e) => dbError(e, "loading your dashboard"));
 
   const DUEL_LABEL = { lobby:"Waiting", countdown:"Starting", question:"Live", discuss:"Live", finished:"Finished", abandoned:"Abandoned" };
   document.getElementById("recent-duels").innerHTML = (duels ?? []).length ? duels.map(d => {
-    const mine = d.host_id === user.id ? d.host_score : d.guest_score, theirs = d.host_id === user.id ? d.guest_score : d.host_score;
+    const mine = d.my_score, theirs = d.their_score;
     const live = ["lobby","countdown","question","discuss"].includes(d.status);
     const result = d.status === "finished" ? (mine === theirs ? "Draw" : mine > theirs ? "Won" : "Lost") : DUEL_LABEL[d.status];
-    return `<a href="duel.html?code=${encodeURIComponent(d.code)}" class="row" style="justify-content:space-between;border-top:1px solid var(--hairline);padding:12px 0">
-      <div><p style="font-size:14px;font-weight:500" class="num">${mine} — ${theirs}</p><p class="muted" style="font-size:12px">${esc(d.code)}</p></div>
+    const when = new Date(d.finished_at || d.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    return `<a href="duel.html?code=${encodeURIComponent(d.code)}" class="row" style="justify-content:space-between;flex-wrap:nowrap;border-top:1px solid var(--hairline);padding:12px 0;gap:10px">
+      <div style="min-width:0"><p style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.paper_title || "Duel")}</p>
+        <p class="num" style="font-size:13px;margin-top:2px">You ${mine} — ${theirs} ${esc(d.opponent_name || "Waiting…")}</p>
+        <p class="muted" style="font-size:12px;margin-top:2px">${d.question_count} questions · ${when}</p></div>
       <span class="chip" ${live ? "" : `style="background:var(--hairline);color:var(--muted)"`}>${result}</span></a>`;
-  }).join("") : `<p class="muted" style="font-size:13px">No duels yet. To host one, open any paper and tap "Duel a friend".</p>`;
+  }).join("") + `<a href="duel-history.html" class="pill pill-soft" style="width:100%;justify-content:center;margin-top:10px">All duels</a>` : `<p class="muted" style="font-size:13px">No duels yet. To host one, open any paper and tap "Duel a friend".</p>`;
 
   const KIND = { past:"Past paper", topic:"Topic paper", model:"Model paper", teacher:"Teacher paper", special:"Special MCQ" };
   const doneIds = new Set((doneRows ?? []).map(r => r.paper_id));
