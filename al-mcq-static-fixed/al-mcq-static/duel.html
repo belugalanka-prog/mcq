@@ -25,7 +25,18 @@ body{background:var(--bg)} .duel-wrap{max-width:900px;margin:0 auto;padding:20px
 <body>
 <div class="duel-wrap">
   <div id="topbar"></div>
-  <div class="duel-top"><a href="dashboard.html" class="muted">← Dashboard</a><span id="code" class="chip"></span></div>
+  <div class="duel-top"><a href="dashboard.html" class="muted">← Dashboard</a><div style="display:flex;align-items:center;gap:8px"><span id="code" class="chip"></span><button id="show-join" class="pill" type="button">Join with code</button></div></div>
+  <div id="join-panel" class="card card-pad hidden" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div><strong>Join your friend's duel</strong><div class="muted" style="font-size:13px;margin-top:3px">Enter the 6-character code they shared.</div></div>
+      <button id="hide-join" class="pill" type="button">Close</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input id="quick-join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="A7K3P9" style="flex:1;min-width:0;text-align:center;letter-spacing:.22em;font-size:20px;font-weight:700;text-transform:uppercase;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:inherit">
+      <button id="quick-join-btn" class="pill pill-brand" type="button">Join</button>
+    </div>
+    <p id="quick-join-error" class="muted" style="margin:8px 0 0"></p>
+  </div>
   <main id="app"><div class="card card-pad center"><h2>Loading duel…</h2><p class="muted">Connecting to the duel room.</p></div></main>
 </div>
 <script type="module">
@@ -213,10 +224,34 @@ function wire(){
  document.querySelectorAll("[data-msg]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.msg,"reaction")));
  document.getElementById("rematch")?.addEventListener("click",async()=>{const {data,error}=await supabase.rpc("create_rematch",{p_duel:duelId});if(error)alert(error.message);else location.href=`duel.html?code=${encodeURIComponent((Array.isArray(data)?data[0]:data).code)}`;});
 }
+function setupQuickJoin(){
+ const panel=document.getElementById("join-panel"), show=document.getElementById("show-join"), hide=document.getElementById("hide-join");
+ const input=document.getElementById("quick-join-code"), btn=document.getElementById("quick-join-btn"), err=document.getElementById("quick-join-error");
+ show?.addEventListener("click",()=>{panel?.classList.remove("hidden");input?.focus();});
+ hide?.addEventListener("click",()=>panel?.classList.add("hidden"));
+ const go=async()=>{
+   const value=(input?.value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+   if(value.length!==6){if(err)err.textContent="Enter a 6-character code.";input?.focus();return;}
+   if(err)err.textContent="Joining…";
+   try{
+     const {data,error}=await supabase.rpc("join_duel",{p_code:value});
+     if(error)throw error;
+     const row=Array.isArray(data)?data[0]:data;
+     const id=row?.duel_id||row?.id;
+     if(!id)throw new Error("The duel could not be joined.");
+     location.href=`duel.html?code=${encodeURIComponent(value)}`;
+   }catch(e){if(err)err.textContent=e?.message||String(e);}
+ };
+ input?.addEventListener("input",()=>{input.value=input.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);if(err)err.textContent="";});
+ input?.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+ btn?.addEventListener("click",go);
+}
+
 (async()=>{
  try {
    session=await requireUser();
    if(!session) return;
+   setupQuickJoin();
    try { await mountTopbar(); } catch(e) { console.warn("Topbar failed",e); }
    if(code) await join(); else showJoinForm();
  } catch(error) {
