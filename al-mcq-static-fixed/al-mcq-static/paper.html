@@ -35,10 +35,11 @@
       </div>
       <div id="start-area" style="margin-top:24px"></div><button id="duel-open" class="pill" style="width:100%;justify-content:center;margin-top:10px;border:1px solid var(--line);background:transparent">Duel a friend</button>
       <div id="duel-setup" class="card card-pad" style="display:none;margin-top:12px">
-        <h3 style="margin:0 0 12px">Duel a friend</h3>
+        <h3 style="margin:0 0 4px">Duel a friend</h3>
+        <p class="muted" style="font-size:12.5px;margin:0 0 12px">You both answer the same questions live. Your friend joins with the code.</p>
         <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
-          <label class="muted" style="font-size:13px">Questions<select id="duel-count" class="input" style="width:100%;margin-top:5px"><option>5</option><option selected>10</option><option>20</option></select></label>
-          <label class="muted" style="font-size:13px">Seconds / question<select id="duel-seconds" class="input" style="width:100%;margin-top:5px"><option>30</option><option selected>45</option><option>60</option></select></label>
+          <label class="muted" style="font-size:13px">Questions<select id="duel-count" class="input" style="width:100%;margin-top:5px"></select></label>
+          <label class="muted" style="font-size:13px">Seconds / question<select id="duel-seconds" class="input" style="width:100%;margin-top:5px"><option>30</option><option selected>45</option><option>60</option><option>90</option></select></label>
         </div>
         <button id="duel-create" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:12px">Create duel</button>
         <div id="duel-created" style="display:none;margin-top:12px"></div>
@@ -100,6 +101,7 @@ const session = await requireUser();
 const startArea = document.getElementById("start-area");
 
 if (!session) {
+  // requireUser() normally redirects, this is only a safety net.
   document.getElementById("duel-open").style.display = "none";
   startArea.innerHTML = `<button id="signin" class="pill pill-brand" style="width:100%;justify-content:center">Continue with Google</button>
     <p class="muted" style="margin-top:12px;font-size:13px">Sign in so your result, streak and topic history are saved.</p>`;
@@ -129,7 +131,7 @@ if (!session) {
     const { data, error } = await supabase.rpc("start_attempt", { p_paper_id: paper.id, p_mode: mode });
     if (error) {
       document.getElementById("err").textContent = error.message;
-      btn.disabled = false; btn.textContent = "Start paper";
+      btn.disabled = false; btn.textContent = `Start ${noun}`;
       return;
     }
     const row = Array.isArray(data) ? data[0] : data;
@@ -137,21 +139,32 @@ if (!session) {
   }
   render();
 
+  // "Full paper" first (value 0 = every question, in order); shorter random rounds only if the paper is long enough.
+  const total = Number(paper.total_questions) || 0;
+  const countSel = document.getElementById("duel-count");
+  countSel.innerHTML = `<option value="0" selected>Full ${noun}${total ? ` (${total})` : ""}</option>` +
+    [10, 20, 30].filter(n => n < total).map(n => `<option value="${n}">${n} random</option>`).join("");
+
   document.getElementById("duel-open").addEventListener("click", () => {
-    const box=document.getElementById("duel-setup");
-    box.style.display=box.style.display==="none"?"block":"none";
+    const box = document.getElementById("duel-setup");
+    box.style.display = box.style.display === "none" ? "block" : "none";
   });
   document.getElementById("duel-create").addEventListener("click", async () => {
-    const btn=document.getElementById("duel-create"), out=document.getElementById("duel-created");
-    btn.disabled=true; btn.textContent="Creating…";
-    const {data,error}=await supabase.rpc("create_duel",{p_paper_id:paper.id,p_question_count:Number(document.getElementById("duel-count").value),p_seconds:Number(document.getElementById("duel-seconds").value)});
-    if(error){out.style.display="block";out.textContent=error.message;out.style.color="var(--bad)";btn.disabled=false;btn.textContent="Create duel";return;}
-    const row=Array.isArray(data)?data[0]:data;
-    const link=`${location.origin}${location.pathname.replace("paper.html","duel.html")}?code=${encodeURIComponent(row.code)}`;
-    out.style.display="block";out.style.color="inherit";
-    out.innerHTML=`<p style="font-size:13px;margin-bottom:8px">Share this code or link with your friend.</p><div style="font-size:28px;font-weight:700;letter-spacing:6px">${row.code}</div><button id="duel-go" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:10px">Open duel lobby</button>`;
-    document.getElementById("duel-go").onclick=()=>location.href=`duel.html?code=${encodeURIComponent(row.code)}`;
-    btn.textContent="Duel created";
+    const btn = document.getElementById("duel-create"), out = document.getElementById("duel-created");
+    btn.disabled = true; btn.textContent = "Creating…";
+    const { data, error } = await supabase.rpc("create_duel", {
+      p_paper_id: paper.id,
+      p_question_count: Number(countSel.value),
+      p_seconds: Number(document.getElementById("duel-seconds").value),
+    });
+    if (error) {
+      out.style.display = "block"; out.textContent = error.message; out.style.color = "var(--bad)";
+      btn.disabled = false; btn.textContent = "Create duel";
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    // Straight into the lobby — the code and invite link are shown there, so there is no second screen to click through.
+    location.href = `duel.html?code=${encodeURIComponent(row.code)}`;
   });
 }
 </script><script src="js/motion.js"></script>
