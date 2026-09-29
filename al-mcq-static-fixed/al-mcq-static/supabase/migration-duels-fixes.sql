@@ -3,6 +3,16 @@
 -- A/L Master — duel v3: change answer + Lock, manual Next, leave_duel, joinable rematch.
 -- Run AFTER migration-duels.sql and migration-duels-fixes.sql. Safe to re-run.
 
+-- 0a. Your database may already have older versions of some of these functions with a different
+--     return type (Postgres refuses to replace those), so remove them first. They are re-created below.
+drop function if exists _duel_record(uuid, uuid, answer_choice, int);
+drop function if exists save_duel_choice(uuid, uuid, answer_choice);
+drop function if exists submit_duel_answer(uuid, uuid, answer_choice);
+drop function if exists advance_duel(uuid);
+drop function if exists get_duel_state(uuid);
+drop function if exists leave_duel(uuid);
+drop function if exists create_rematch(uuid);
+
 -- 0. New columns ------------------------------------------------------------
 alter table duels add column if not exists host_choice answer_choice;   -- unlocked pick (changeable)
 alter table duels add column if not exists guest_choice answer_choice;
@@ -10,6 +20,9 @@ alter table duels add column if not exists rematch_code text;
 
 -- Discussion no longer auto-advances after 20s. Players tap "Next question".
 -- discuss_seconds is now only a safety cap so a duel can't hang forever if someone walks away.
+-- Your database has a check constraint on discuss_seconds (it isn't in the original migration), so widen it first.
+alter table duels drop constraint if exists duel_discuss_seconds;
+alter table duels add constraint duel_discuss_seconds check (discuss_seconds between 5 and 900);
 alter table duels alter column discuss_seconds set default 300;
 update duels set discuss_seconds = 300 where status in ('lobby','countdown','question','discuss');
 
@@ -192,6 +205,11 @@ end $$;
 -- ===== v4 =====
 -- A/L Master — duel v4: missed-answer records, per-question review, duel history.
 -- Run AFTER migration-duels-v3.sql. Safe to re-run.
+
+-- Remove older versions first (a different return type can't be replaced in place).
+drop function if exists advance_duel(uuid);
+drop function if exists get_duel_review(uuid);
+drop function if exists get_duel_history(int);
 
 -- 1. A missed question now gets a real duel_answers row (selected = null, is_correct = false)
 alter table duel_answers alter column selected drop not null;
