@@ -12,6 +12,7 @@ drop function if exists advance_duel(uuid);
 drop function if exists get_duel_state(uuid);
 drop function if exists leave_duel(uuid);
 drop function if exists create_rematch(uuid);
+drop function if exists create_duel(uuid, int, int);
 
 -- 0. New columns ------------------------------------------------------------
 alter table duels add column if not exists host_choice answer_choice;   -- unlocked pick (changeable)
@@ -87,9 +88,7 @@ begin
   if (ishost and d.host_answered) or ((not ishost) and d.guest_answered) then
     return jsonb_build_object('already',true);
   end if;
-  select correct_answer into q_correct from questions where id=p_question;
-  if q_correct is null then raise exception 'This question has no correct answer configured'; end if;
-
+  -- A question with no answer key configured no longer blocks the player: it just scores 0 for both.
   ms := greatest(0, least((extract(epoch from (now()-d.question_started_at))*1000)::int, d.seconds_per_question*1000+1000));
   perform _duel_record(p_duel, uid, p_choice, ms);
 
@@ -200,6 +199,27 @@ begin
   select create_duel(d.paper_id,d.question_count,d.seconds_per_question) into q;
   update duels set rematch_code = q->>'code' where id=p_duel;
   return q;
+end $$;
+
+-- 8. New duels only pick questions that HAVE a correct answer configured
+create or replace function create_duel(p_paper_id uuid, p_question_count int default 10, p_seconds int default 45)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare qids uuid[]; did uuid; c text; n int;
+begin
+  if auth.uid() is null then raise exception 'Sign in required'; end if;
+  if exists(select 1 from profiles where id=auth.uid() and is_suspended) then raise exception 'Your account is suspended'; end if;
+  if p_question_count not between 5 and 20 then raise exception 'Question count must be 5–20'; end if;
+  if p_seconds not between 15 and 120 then raise exception 'Time per question must be 15–120 seconds'; end if;
+  select count(*) into n from questions where paper_id=p_paper_id and correct_answer is not null;
+  if n < 1 then raise exception 'This paper has no questions with a correct answer set'; end if;
+  p_question_count := least(p_question_count,n);
+  select array_agg(id order by random()) into qids from (
+    select id from questions where paper_id=p_paper_id and correct_answer is not null order by random() limit p_question_count) s;
+  c := _duel_code();
+  insert into duels(code,paper_id,host_id,question_ids,question_count,seconds_per_question)
+  values(c,p_paper_id,auth.uid(),qids,p_question_count,p_seconds)
+  returning id into did;
+  return jsonb_build_object('duel_id',did,'code',c);
 end $$;
 
 -- ===== v4 =====
