@@ -125,6 +125,10 @@
         <div id="points"></div>
         <a href="leaderboard.html" class="pill pill-soft" style="width:100%;justify-content:center;margin-top:16px">See the rankings</a>
       </div>
+      <div class="card card-pad">
+        <div class="card-head"><h2>Duels</h2><a href="subject.html" style="font-size:13px;color:var(--brand)">Play</a></div>
+        <div id="recent-duels"><p class="muted" style="font-size:13px">Loading…</p></div>
+      </div>
     </div>
   </div>
 
@@ -235,6 +239,7 @@ if (session) {
     { data: topics, error: topicsError },
     { data: recentPapers, error: recentPapersError },
     { data: doneRows },
+    { data: duels, error: duelsError },
   ] = await Promise.all([
     supabase.from("user_statistics").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("attempts").select("id,percentage,score,time_taken_seconds,completed_at,papers(title,subject)")
@@ -243,6 +248,7 @@ if (session) {
     supabase.from("topic_performance").select("subject,accuracy").eq("user_id", user.id),
     supabase.from("papers").select("id,title,subject,paper_type,year,duration_minutes,total_questions")
       .eq("is_published", true).order("created_at", { ascending: false }).limit(16),
+    supabase.from("duels").select("id,code,status,host_id,guest_id,host_score,guest_score,created_at").or(`host_id.eq.${user.id},guest_id.eq.${user.id}`).order("created_at",{ascending:false}).limit(4),
     supabase.from("attempts").select("paper_id").eq("user_id", user.id),
   ]);
   [statsError, attemptsError, runningError, topicsError, recentPapersError].forEach((e) => dbError(e, "loading your dashboard"));
