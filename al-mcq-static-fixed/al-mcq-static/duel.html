@@ -458,7 +458,7 @@ function paintReview() {
     detail = `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)">
       <p style="font-size:15px;font-weight:600">Question ${r.index + 1}</p>
       <img class="qimg" src="${esc(r.image || "")}" alt="Question ${r.index + 1}" style="width:100%;border-radius:14px;margin-top:10px;display:block">
-      <p style="font-size:15px;margin-top:12px">Correct answer: <strong style="color:var(--ok)">${esc(num(r.correct))}</strong></p>
+      <p style="font-size:15px;margin-top:12px">${r.correct ? `Correct answer: <strong style="color:var(--ok)">${esc(num(r.correct))}</strong>` : `<strong style="color:var(--warn)">No correct answer is set for this question</strong>`}</p>
       ${rowHtml("You", mine(r))}${rowHtml(op.name || "Opponent", meHost ? r.guest : r.host)}
       ${r.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(r.review)}</p>` : ""}
       ${r.review_image ? `<img class="qimg" src="${esc(r.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
@@ -481,7 +481,8 @@ function paintReveal() {
   const answerText = !keys.length ? "—" : keys.length >= LETTERS.length ? "Any option" : keys.map(num).join(" or ");
   const row = rowHtml;
   el.className = "";
-  el.innerHTML = `<p style="font-size:15px">Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong></p>
+  const noKey = !keys.length;
+  el.innerHTML = `<p style="font-size:15px">${noKey ? `<strong style="color:var(--warn)">No correct answer is set for this question</strong> — it scores no points for either player.` : `Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong>`}</p>
     ${row(meHost ? "You" : op.name || "Host", reveal.host)}${row(meHost ? op.name || "Guest" : "You", reveal.guest)}
     ${reveal.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(reveal.review)}</p>` : ""}
     ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
