@@ -8,6 +8,7 @@ const NAV = [
   ["special.html", "Special MCQ"],
   ["users.html", "Students"],
   ["reports.html", "Reports"],
+  ["duel-reports.html", "Duel reports"],
   ["requests.html", "Requests"],
   ["announcements.html", "Announcements"],
   ["ads.html", "Advertising"],

@@ -1,11 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Duel history — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duel History | A/L Master</title>
+<meta name="description" content="Your past A/L MCQ duels and results against friends.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Duel History | A/L Master">
+<meta property="og:description" content="Your past A/L MCQ duels and results against friends.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Duel History | A/L Master">
+<meta name="twitter:description" content="Your past A/L MCQ duels and results against friends.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -18,12 +42,13 @@
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar } from "./js/shell.js";
+import { mountRail, mountTopbar, mountFooter } from "./js/shell.js";
 import { esc, titleCase } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 await requireUser();
 mountRail();
+mountFooter();
 mountTopbar({ tabs: [{ href: "duel-history.html", label: "Duels" }, { href: "dashboard.html", label: "Dashboard" }], search: false });
 
 const { data, error } = await supabase.rpc("get_duel_history", { p_limit: 100 });
@@ -43,7 +68,7 @@ document.getElementById("list").innerHTML = rows.length ? rows.map((d, i) => {
     <div style="min-width:0"><p style="font-size:15px;font-weight:600">${esc(d.paper_title)}${d.paper_year ? ` ${d.paper_year}` : ""}</p>
       <p class="num" style="font-size:14px;margin-top:4px">You ${d.my_score} — ${d.their_score} ${esc(d.opponent_name || "Waiting…")}</p>
       <p class="muted" style="font-size:12px;margin-top:4px">${titleCase(d.paper_subject || "")} · ${d.question_count} questions · ${when} · ${esc(d.code)}</p></div>
-    <span class="chip" style="${win ? "background:rgba(46,212,122,.14);color:var(--ok)" : live ? "" : "background:var(--hairline);color:var(--muted)"}">${res}</span></a>`;
+    <span class="chip" style="${win ? "background:rgba(46,212,122,.14);color:var(--ok-text)" : live ? "" : "background:var(--hairline);color:var(--muted)"}">${res}</span></a>`;
 }).join("") : `<p class="card-pad muted">No duels yet. Open any paper and tap "Duel a friend".</p>`;
 </script>
 </body>

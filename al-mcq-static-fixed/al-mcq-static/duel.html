@@ -3,10 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Duel — A/L Master</title>
+<title>1v1 Duel | A/L Master</title>
+<meta name="description" content="Challenge a friend to a live 1v1 A/L MCQ duel: same questions, same clock, highest score wins.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="1v1 Duel | A/L Master">
+<meta property="og:description" content="Challenge a friend to a live 1v1 A/L MCQ duel: same questions, same clock, highest score wins.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="1v1 Duel | A/L Master">
+<meta name="twitter:description" content="Challenge a friend to a live 1v1 A/L MCQ duel: same questions, same clock, highest score wins.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 <style>
   .duel{max-width:860px;margin:0 auto}
@@ -26,7 +50,7 @@
   .answers .option.locked{opacity:1;box-shadow:0 0 0 2px var(--brand) inset}
   .lockbar{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:16px;flex-wrap:wrap}
   .lockbar .pill{min-width:160px;justify-content:center}
-  .big{font-family:Poppins,sans-serif;font-weight:600;font-size:88px;line-height:1;color:var(--brand)}
+  .big{font-family:Poppins,sans-serif;font-weight:600;font-size:88px;line-height:1;color:var(--brand-text)}
   .center{text-align:center;padding:44px 20px}
   .code{font-family:Poppins,sans-serif;font-weight:600;font-size:38px;letter-spacing:.3em;margin:14px 0 4px;padding-left:.3em}
   .who{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1px solid var(--hairline);margin-top:8px;font-size:14px}
@@ -38,14 +62,14 @@
   .msg.me{margin-left:auto;background:var(--brand);color:#fff}
   .quick{display:flex;gap:6px;padding:0 14px 10px;overflow:auto}
   .quick button{border:1px solid var(--hairline);border-radius:999px;padding:5px 12px;font-size:13px;white-space:nowrap;background:var(--surface)}
-  .quick button:hover{background:var(--brand-soft);color:var(--brand)}
+  .quick button:hover{background:var(--brand-soft);color:var(--brand-text)}
   .chat-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--hairline)}
-  #flash{margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad)}
+  #flash{margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad-text)}
   .codebox{text-align:center;letter-spacing:.3em;font-size:20px;font-weight:600;text-transform:uppercase}
-  #flash.ok{background:rgba(46,212,122,.12);color:var(--ok)}
+  #flash.ok{background:rgba(46,212,122,.12);color:var(--ok-text)}
   .notice{margin-bottom:12px;border-radius:14px;padding:11px 16px;font-size:13px}
-  .notice.warn{background:rgba(255,178,36,.14);color:var(--warn)}
-  .notice.ok{background:rgba(46,212,122,.12);color:var(--ok)}
+  .notice.warn{background:rgba(255,178,36,.14);color:var(--warn-text)}
+  .notice.ok{background:rgba(46,212,122,.12);color:var(--ok-text)}
   .notice.opp{background:rgba(255,178,36,.12);color:var(--ink);border:1px solid var(--warn);margin:0 0 12px}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:5px;vertical-align:1px}
   .dot.on{background:var(--ok)}
@@ -55,8 +79,8 @@
   .chat-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center}
   .rv-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
   .rv-chip{width:40px;height:40px;border-radius:12px;border:1px solid var(--hairline);background:var(--surface);font-weight:600;font-size:14px}
-  .rv-chip.good{background:rgba(46,212,122,.14);border-color:var(--ok);color:var(--ok)}
-  .rv-chip.bad{background:rgba(240,71,108,.1);border-color:var(--bad);color:var(--bad)}
+  .rv-chip.good{background:rgba(46,212,122,.14);border-color:var(--ok);color:var(--ok-text)}
+  .rv-chip.bad{background:rgba(240,71,108,.1);border-color:var(--bad);color:var(--bad-text)}
   .rv-chip.miss{background:var(--hairline);color:var(--muted)}
   .rv-chip.sel{box-shadow:0 0 0 2px var(--brand)}
   @media(max-width:700px){
@@ -133,8 +157,8 @@ function showJoinForm(message = "") {
     <p class="muted" style="margin:8px 0 18px;font-size:14px">Enter the 6-character code your friend shared with you.</p>
     <input id="join-code" class="field codebox" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. A7K3P9">
     <button id="join-code-btn" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:12px">Join duel</button>
-    <p id="join-err" style="margin-top:12px;font-size:13px;color:var(--bad)">${esc(message)}</p>
-    <p class="muted" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hairline);font-size:13px">Want to host one instead? Open any paper and tap <b>Duel a friend</b> — <a href="subject.html" style="color:var(--brand)">browse papers</a>.</p></div>`;
+    <p id="join-err" style="margin-top:12px;font-size:13px;color:var(--bad-text)">${esc(message)}</p>
+    <p class="muted" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hairline);font-size:13px">Want to host one instead? Open any paper and tap <b>Duel a friend</b> — <a href="subject.html" style="color:var(--brand-text)">browse papers</a>.</p></div>`;
   const input = $("join-code"), go = () => goToCode(input.value, $("join-err"));
   bindCodeInput(input, go); $("join-code-btn").addEventListener("click", go); input.focus();
   (async () => {   // already in a duel? offer to go back to it instead of looking like a fresh start
@@ -343,7 +367,7 @@ async function loadReveal() {
 }
 
 /* ---------- ui ---------- */
-function avatar(url) { return url ? `<img class="avatar" src="${esc(url)}" alt="">` : `<div class="avatar"></div>`; }
+function avatar(url) { return url ? `<img class="avatar" src="${esc(url)}" alt="" width="40" height="40" decoding="async">` : `<div class="avatar"></div>`; }
 function playersHtml() {
   const me = state.me || {}, op = state.opponent || {};
   const meHost = me.id === state.host_id;
@@ -458,16 +482,16 @@ function paintReview() {
     detail = `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)">
       <p style="font-size:15px;font-weight:600">Question ${r.index + 1}</p>
       <img class="qimg" src="${esc(r.image || "")}" alt="Question ${r.index + 1}" style="width:100%;border-radius:14px;margin-top:10px;display:block">
-      <p style="font-size:15px;margin-top:12px">${keysOf(r.correct).length ? `Correct answer: <strong style="color:var(--ok)">${esc(answerTextOf(r.correct))}</strong>` : `<strong style="color:var(--warn)">No correct answer for this question (voided)</strong>`}</p>
+      <p style="font-size:15px;margin-top:12px">${keysOf(r.correct).length ? `Correct answer: <strong style="color:var(--ok-text)">${esc(answerTextOf(r.correct))}</strong>` : `<strong style="color:var(--warn-text)">No correct answer for this question (voided)</strong>`}</p>
       ${rowHtml("You", mine(r))}${rowHtml(op.name || "Opponent", meHost ? r.guest : r.host)}
       ${r.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(r.review)}</p>` : ""}
-      ${r.review_image ? `<img class="qimg" src="${esc(r.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
+      ${r.review_image ? `<img class="qimg" src="${esc(r.review_image)}" alt="Worked explanation" decoding="async" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
       <p style="font-size:13px;font-weight:600;margin-top:16px">Chat about this question</p>
       ${msgs.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${msgs.map((m) => `<div class="msg ${m.sender_id === session.user.id ? "me" : ""}">${esc(m.body)}</div>`).join("")}</div>` : `<p class="muted" style="font-size:13px;margin-top:6px">No messages on this question.</p>`}
     </div>`;
   }
   el.innerHTML = `<div class="card card-pad" style="margin-top:16px"><div class="between"><strong style="font-size:15px">Review questions</strong>
-    <span class="muted" style="font-size:12px"><span style="color:var(--ok)">■</span> right &nbsp;<span style="color:var(--bad)">■</span> wrong &nbsp;■ missed</span></div>
+    <span class="muted" style="font-size:12px"><span style="color:var(--ok-text)">■</span> right &nbsp;<span style="color:var(--bad-text)">■</span> wrong &nbsp;■ missed</span></div>
     <div class="rv-grid">${chips}</div>${detail}</div>`;
   el.querySelectorAll("[data-rv]").forEach((b) => b.addEventListener("click", () => { reviewIdx = Number(b.dataset.rv); paintReview(); }));
 }
@@ -483,10 +507,10 @@ function paintReveal() {
   const row = rowHtml;
   el.className = "";
   const noKey = !keys.length;
-  el.innerHTML = `<p style="font-size:15px">${noKey ? `<strong style="color:var(--warn)">This question has no correct answer (voided)</strong> — it scores no points for either player.` : `Correct answer: <strong style="color:var(--ok)">${esc(answerText)}</strong>`}</p>
+  el.innerHTML = `<p style="font-size:15px">${noKey ? `<strong style="color:var(--warn-text)">This question has no correct answer (voided)</strong> — it scores no points for either player.` : `Correct answer: <strong style="color:var(--ok-text)">${esc(answerText)}</strong>`}</p>
     ${row(meHost ? "You" : op.name || "Host", reveal.host)}${row(meHost ? op.name || "Guest" : "You", reveal.guest)}
     ${reveal.review ? `<p class="muted" style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(reveal.review)}</p>` : ""}
-    ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Explanation" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
+    ${reveal.review_image ? `<img class="qimg" src="${esc(reveal.review_image)}" alt="Worked explanation" decoding="async" style="width:100%;border-radius:14px;margin-top:12px;display:block">` : ""}
     <div style="margin-top:14px"><button id="share-exp" class="pill pill-soft" type="button" ${sharedFor === state.current_index ? "disabled" : ""}>${sharedFor === state.current_index ? "Shared in chat ✓" : "Share explanation in chat"}</button></div>`;
   $("share-exp")?.addEventListener("click", async () => {
     const n = state.current_index + 1;

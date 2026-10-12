@@ -1,11 +1,37 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Terms & Conditions — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terms &amp; Conditions | A/L Master</title>
+<meta name="description" content="The terms for using A/L Master, the A/L Physics and Chemistry MCQ practice platform: accounts, acceptable use, content and liability.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="canonical" href="https://almcq.vercel.app/terms.html">
+<meta property="og:url" content="https://almcq.vercel.app/terms.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Terms &amp; Conditions | A/L Master">
+<meta property="og:description" content="The terms for using A/L Master, the A/L Physics and Chemistry MCQ practice platform: accounts, acceptable use, content and liability.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Terms &amp; Conditions | A/L Master">
+<meta name="twitter:description" content="The terms for using A/L Master, the A/L Physics and Chemistry MCQ practice platform: accounts, acceptable use, content and liability.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -13,7 +39,7 @@
   <div id="topbar"></div>
 
   <h1 style="font-size:30px">Terms & Conditions</h1>
-  <p class="muted" style="margin-top:8px;font-size:13px">Last updated: <span id="updated"></span></p>
+  <p class="muted" style="margin-top:8px;font-size:13px">Last updated: <span id="updated">October 12, 2026</span></p>
 
   <div class="card card-pad legal-body" style="margin-top:24px">
     <h2>1. Using A/L Master</h2>
@@ -51,10 +77,10 @@
 </div>
 
 <script type="module">
-import { mountTopbar, mountRail } from "./js/shell.js";
+import { mountTopbar, mountRail, mountFooter } from "./js/shell.js";
 mountRail();
-mountTopbar({ search: false, tabs: [{href:"dashboard.html",label:"Dashboard"}] });
-document.getElementById("updated").textContent = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+mountFooter();
+mountTopbar({ search: false, home: "index.html", backFallback: "index.html", tabs: [{href:"index.html",label:"Home"}] });
 </script><script src="js/motion.js"></script>
 <p class="muted" style="margin-top:18px">Duel chat may be reviewed if a message is reported for moderation or safety.</p>
 </body>

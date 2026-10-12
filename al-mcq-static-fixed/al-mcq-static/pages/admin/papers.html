@@ -1,11 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Papers — Admin</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin: Papers | A/L Master</title>
+<meta name="description" content="A/L Master admin — papers. Staff only.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../css/styles.css">
 <script src="../../config.js"></script>
+<script src="../../js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -13,7 +25,7 @@
   <div class="row" id="admin-header" style="margin-bottom:24px"></div>
   <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
 
-  <div class="grid" style="grid-template-columns:1fr 1.7fr;align-items:start">
+  <div class="grid split-g" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:16px">
 
       <div class="card card-pad">
@@ -47,7 +59,7 @@
       <div class="card card-pad">
         <div class="card-head"><h2>3 · Upload whole folders</h2></div>
         <p class="muted" style="font-size:13px;margin-bottom:10px">Creates the papers <b>and</b> uploads every question image in one go. Arrange your folders like this, then choose the top folder:</p>
-        <pre class="num" style="font-size:12px;background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:12px;overflow-x:auto;line-height:1.5">All papers/
+        <pre class="num" style="font-size:12px;background:var(--brand-soft);color:var(--brand-text);border-radius:12px;padding:12px;overflow-x:auto;line-height:1.5">All papers/
   Sunil Sir/          ← group
     Paper 01/         ← paper
       001.png … 050.png
@@ -75,7 +87,7 @@
           <button class="pill pill-ghost" id="b-unpublish" disabled>Unpublish</button>
           <input id="b-group" list="group-list" class="field" placeholder="Move to group…" style="width:170px;height:40px">
           <button class="pill pill-ghost" id="b-setgroup" disabled>Apply</button>
-          <button class="pill pill-ghost" id="b-delete" disabled style="color:var(--bad)">Delete</button>
+          <button class="pill pill-ghost" id="b-delete" disabled style="color:var(--bad-text)">Delete</button>
         </div>
         <p id="bulk-msg" class="muted" style="font-size:13px;margin-bottom:8px"></p>
       </div>
@@ -166,7 +178,7 @@ function render() {
     const allSel = items.every(p => selected.has(p.id));
     const head = `<div class="row" style="border-top:1px solid var(--hairline);background:var(--brand-soft);padding:10px 24px;gap:10px">
       <input type="checkbox" data-grp="${escAttr(k)}" ${allSel ? "checked" : ""}>
-      <b style="font-size:13px;color:var(--brand)">${k ? esc(k) : "No group"}</b>
+      <b style="font-size:13px;color:var(--brand-text)">${k ? esc(k) : "No group"}</b>
       <span class="num muted" style="font-size:12px">${items.length} paper${items.length === 1 ? "" : "s"}</span></div>`;
     return head + items.map(p => {
       const entered = p.questions?.[0]?.count ?? 0;
@@ -332,7 +344,7 @@ function buildPlan(files) {
 
 function renderPlan(ignored = 0) {
   const el = $("plan");
-  if (!plan.length) { el.innerHTML = `<p class="muted" style="font-size:13px;color:var(--bad)">No numbered images found. Files need a number in the name, like 001.png.</p>`; return; }
+  if (!plan.length) { el.innerHTML = `<p class="muted" style="font-size:13px;color:var(--bad-text)">No numbered images found. Files need a number in the name, like 001.png.</p>`; return; }
   el.innerHTML = `
     <div style="max-height:260px;overflow:auto;border:1px solid var(--hairline);border-radius:12px">
       <table style="width:100%;font-size:12px;border-collapse:collapse">
@@ -377,9 +389,9 @@ async function runUpload() {
       const items = [...p.items.entries()].map(([n, file]) => ({ n, file }));
       const { rows, failed } = await uploadQuestionImages(paper, items, (d, t) => live(`uploading ${d}/${t}`));
       const { added, replaced } = rows.length ? await saveQuestionRows(paper, rows) : { added: 0, replaced: 0 };
-      lines.push(`<p>✓ <a href="questions.html?paper=${paper.id}" style="color:var(--brand)">${esc(label)}</a> <span class="muted num">— ${added} new${replaced ? `, ${replaced} replaced` : ""}${failed.length ? `, <span style="color:var(--bad)">${failed.length} failed</span>` : ""}</span></p>`);
+      lines.push(`<p>✓ <a href="questions.html?paper=${paper.id}" style="color:var(--brand-text)">${esc(label)}</a> <span class="muted num">— ${added} new${replaced ? `, ${replaced} replaced` : ""}${failed.length ? `, <span style="color:var(--bad-text)">${failed.length} failed</span>` : ""}</span></p>`);
     } catch (e) {
-      lines.push(`<p style="color:var(--bad)">✗ ${esc(label)} — ${esc(e.message ?? "failed")}</p>`);
+      lines.push(`<p style="color:var(--bad-text)">✗ ${esc(label)} — ${esc(e.message ?? "failed")}</p>`);
     }
     paint();
   }

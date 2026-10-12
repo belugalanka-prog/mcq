@@ -3,7 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Exam — A/L Master</title>
+<title>Exam in Progress | A/L Master</title>
+<meta name="description" content="A timed A/L MCQ paper in progress on A/L Master.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Exam in Progress | A/L Master">
+<meta property="og:description" content="A timed A/L MCQ paper in progress on A/L Master.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Exam in Progress | A/L Master">
+<meta name="twitter:description" content="A timed A/L MCQ paper in progress on A/L Master.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
@@ -30,23 +51,23 @@
     <p id="paper-title" style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
     <p class="num muted" id="progress" style="margin-left:auto;font-size:14px"></p>
     <button id="pause-btn" class="pill pill-soft hidden" style="font-size:13px">Pause</button>
-    <p class="num" id="timer" style="border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;background:var(--brand-soft);color:var(--brand)"></p>
+    <p class="num" id="timer" style="border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;background:var(--brand-soft);color:var(--brand-text)"></p>
   </div>
 </header>
 <script src="js/motion.js"></script>
 <main class="exam">
-  <p id="save-error" class="hidden" style="margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad)">
+  <p id="save-error" class="hidden" style="margin-bottom:12px;border-radius:14px;padding:12px 16px;font-size:13px;background:rgba(240,71,108,.08);color:var(--bad-text)">
     That answer did not save. Check your connection and tap the option again.
   </p>
   <div id="instr-wrap" class="hidden" style="margin-bottom:16px">
     <div class="card card-pad" style="background:var(--brand-soft)">
       <p class="muted" style="font-size:13px;margin-bottom:10px">Read this before you answer the next question</p>
-      <img id="instr-img" class="qimg" alt="Instructions">
+      <img id="instr-img" class="qimg" alt="Paper instructions" decoding="async">
     </div>
   </div>
   <div class="card" style="overflow:hidden">
     <p id="q-source" class="muted hidden" style="padding:10px 16px 0;font-size:12.5px"></p>
-    <img id="qimg" class="qimg" alt="Question">
+    <img id="qimg" class="qimg" alt="Question image" decoding="async">
   </div>
   <div id="options" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
   <div id="practice-area" style="margin-top:16px"></div>
@@ -138,6 +159,7 @@ if (attemptError || !attempt || attempt.user_id !== session.user.id) {
 if (attempt.completed_at) { location.href = `results.html?attempt=${attemptId}`; throw new Error("done"); }
 
 document.getElementById("paper-title").textContent = attempt.papers?.title ?? attempt.topic ?? "Practice";
+document.title = `${attempt.papers?.title ?? attempt.topic ?? "Practice"} (in progress) | A/L Master`;
 
 // get_exam_questions() is a SECURITY DEFINER function that returns only
 // id/question_number/question_image_url/topic — correct_answer never
@@ -179,7 +201,7 @@ async function submit(auto = false) {
     submitted = false;
     document.getElementById("confirm-submit").textContent = "Submit";
     if (auto) return;               // timer ran out and the network failed: quietly retry in a few seconds
-    alert(error.message);
+    toast(error.message || "Could not submit your paper. Check your connection and try again.", "error");
     return;
   }
   location.href = `results.html?attempt=${attemptId}&finished=1`;
@@ -191,7 +213,7 @@ setInterval(() => {
   if (paused) { document.getElementById("timer").textContent = "⏸ Paused"; return; }
   const left = (new Date(attempt.expires_at).getTime() - Date.now()) / 1000;
   document.getElementById("timer").textContent = clock(left);
-  document.getElementById("timer").style.color = left < 300 ? "var(--bad)" : "var(--brand)";
+  document.getElementById("timer").style.color = left < 300 ? "var(--bad-text)" : "var(--brand-text)";
   document.getElementById("timer").style.background = left < 300 ? "rgba(240,71,108,.1)" : "var(--brand-soft)";
   if (left <= 0 && Date.now() - lastAutoTry > 5000) { lastAutoTry = Date.now(); submit(true); }
 }, 1000);
@@ -271,7 +293,7 @@ function renderPracticeArea() {
           : (reveal.correct || []).length === CHOICES.length ? "Any option was correct here."
           : `Correct answer is ${reveal.correct.map(c => CHOICES.indexOf(c) + 1).join(" or ")}`}</p>
       ${reveal.review_text ? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(reveal.review_text)}</p>` : ""}
-      ${reveal.review_image_url ? `<img src="${esc(reveal.review_image_url)}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
+      ${reveal.review_image_url ? `<img src="${esc(reveal.review_image_url)}" alt="Worked explanation for this question" loading="lazy" decoding="async" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
     </div>`;
   }
 }
@@ -366,12 +388,14 @@ document.getElementById("report-submit").addEventListener("click", async () => {
     question_id: question().id, attempt_id: attemptId, user_id: session.user.id, reason,
   });
   if (error) {
+    msg.style.color = "var(--bad-text)";
     msg.textContent = "Could not send that. Try again.";
     btn.disabled = false; btn.textContent = "Send report";
     return;
   }
-  msg.style.color = "var(--ok)";
+  msg.style.color = "var(--ok-text)";
   msg.textContent = "Thanks — sent to the admin.";
+  toast("Report sent. Thank you!", "success");
   setTimeout(() => document.getElementById("report-modal").classList.add("hidden"), 1000);
 });
 

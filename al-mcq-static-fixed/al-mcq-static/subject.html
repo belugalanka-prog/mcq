@@ -1,11 +1,35 @@
 <!doctype html>
 <html lang="en"> 
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Papers — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A/L Past, Topic &amp; Model Papers | A/L Master</title>
+<meta name="description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="A/L Past, Topic &amp; Model Papers | A/L Master">
+<meta property="og:description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A/L Past, Topic &amp; Model Papers | A/L Master">
+<meta name="twitter:description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -31,12 +55,13 @@
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 if (!(await requireUser())) throw new Error("redirecting to sign-in");
 mountRail();
+mountFooter();
 mountTopbar({ tabs: [
   {href:"subject.html", label:"All papers"},
   {href:"topics.html", label:"Lessons"},
@@ -50,6 +75,7 @@ const TYPES = [["all","All kinds"],["past","Past papers"],["topic","Topic papers
 // State, seeded from the URL so old links (e.g. subject.html?subject=physics&type=past)
 // still land pre-filtered, and so filter choices are shareable / survive a refresh.
 let subjectFilter = qs("subject", "all");
+if (subjectFilter !== "all") document.title = `${titleCase(subjectFilter)} Papers | A/L Master`;
 let typeFilter = qs("type", "all");
 let group = qs("group");
 if (!SUBJECTS.some(([k]) => k === subjectFilter)) subjectFilter = "all";

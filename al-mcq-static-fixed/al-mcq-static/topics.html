@@ -1,11 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Practice by lesson — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Practice by Lesson | A/L Master</title>
+<meta name="description" content="Practise A/L Physics and Chemistry MCQs lesson by lesson with instant marking and a topic-level breakdown of your accuracy.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Practice by Lesson | A/L Master">
+<meta property="og:description" content="Practise A/L Physics and Chemistry MCQs lesson by lesson with instant marking and a topic-level breakdown of your accuracy.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Practice by Lesson | A/L Master">
+<meta name="twitter:description" content="Practise A/L Physics and Chemistry MCQs lesson by lesson with instant marking and a topic-level breakdown of your accuracy.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -25,12 +49,13 @@
 <script type="module">
 import { requireUser, signInWithGoogle } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar } from "./js/shell.js";
+import { mountRail, mountTopbar, mountFooter } from "./js/shell.js";
 import { esc, qs } from "./js/format.js";
-import { dbError } from "./js/db.js";
+import { dbError, toast } from "./js/db.js";
 import { TOPICS } from "./js/topics.js";
 
 mountRail();
+mountFooter();
 mountTopbar({ tabs: [
   {href:"subject.html", label:"All papers"},
   {href:"topics.html", label:"Lessons"},
@@ -40,6 +65,7 @@ mountTopbar({ tabs: [
 const SUBJECTS = [["physics","Physics"],["chemistry","Chemistry"]];
 let subject = qs("subject", "physics");
 if (!SUBJECTS.some(([k]) => k === subject)) subject = "physics";
+document.title = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Lessons | A/L Master`;
 
 const session = await requireUser();
 
@@ -87,7 +113,7 @@ async function renderLessons() {
         </button>
       </div>
     </div>`).join("")}</div>
-    <p id="start-err" class="muted" style="margin-top:14px;font-size:13px;color:var(--bad)"></p>`;
+    <p id="start-err" class="muted" style="margin-top:14px;font-size:13px;color:var(--bad-text)"></p>`;
 
   el.querySelectorAll("[data-start]").forEach(btn => btn.addEventListener("click", () => startLesson(btn.dataset.start, btn)));
 }
@@ -96,8 +122,8 @@ const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
 async function startLesson(topic, btn) {
   if (!session) {
     document.getElementById("start-err").textContent = "";
-    const ok = confirm("Sign in with Google to practice this lesson?");
-    if (ok) signInWithGoogle();
+    toast("Sign in with Google to practise this lesson…", "info");
+    setTimeout(signInWithGoogle, 700);
     return;
   }
   btn.disabled = true; const original = btn.textContent; btn.textContent = "Opening…";

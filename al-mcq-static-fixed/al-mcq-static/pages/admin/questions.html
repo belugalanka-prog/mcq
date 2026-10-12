@@ -1,11 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Questions — Admin</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin: Questions | A/L Master</title>
+<meta name="description" content="A/L Master admin — questions. Staff only.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../css/styles.css">
 <script src="../../config.js"></script>
+<script src="../../js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -13,17 +25,17 @@
   <div class="row" id="admin-header" style="margin-bottom:24px"></div>
   <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
 
-  <div class="grid" style="grid-template-columns:1fr 1.9fr;align-items:start">
+  <div class="grid split-f" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card card-pad">
         <div class="card-head"><h2>Upload questions</h2></div>
         <div id="dropzone" style="border:1px dashed var(--brand);background:var(--brand-soft);border-radius:18px;padding:36px 20px;text-align:center;cursor:pointer">
-          <p style="font-size:15px;font-weight:500;color:var(--brand)">Drop all 50 question images here</p>
+          <p style="font-size:15px;font-weight:500;color:var(--brand-text)">Drop all 50 question images here</p>
           <p class="muted" style="margin-top:6px;font-size:13px;max-width:38ch;margin-left:auto;margin-right:auto">Name them 001.png through 050.png. They are converted to WebP in your browser before upload, so large screenshots stay fast to load.</p>
         </div>
         <input type="file" id="file-input" accept="image/*" multiple hidden>
         <div id="upload-progress" style="margin-top:16px"></div>
-        <p id="upload-error" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>
+        <p id="upload-error" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad-text)"></p>
       </div>
       <div class="card card-pad">
         <div class="card-head"><h2>Paste answer key</h2></div>
@@ -108,7 +120,7 @@ async function handleFiles(fileList) {
       errEl.style.color = "var(--muted)";
       if (!failed.length && !unnamed.length) errEl.textContent = `${added} added${replaced ? `, ${replaced} images replaced (answers kept)` : ""}.`;
       await loadGrid();
-    } catch (e) { errEl.style.color = "var(--bad)"; errEl.textContent = e.message; }
+    } catch (e) { errEl.style.color = "var(--bad-text)"; errEl.textContent = e.message; }
   }
   document.getElementById("file-input").value = "";
 }
@@ -161,7 +173,7 @@ async function loadGrid() {
     <div id="row-${q.question_number}" data-qid="${q.id}" data-n="${q.question_number}" style="border-top:1px solid var(--hairline);padding:14px 0">
       <div class="row">
         <span class="chip num" style="width:48px;justify-content:center">${q.question_number}</span>
-        <img src="${q.question_image_url}" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
+        <img src="${q.question_image_url}" alt="Question ${q.question_number ?? ''} thumbnail" loading="lazy" decoding="async" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
         <div class="row" style="gap:6px" data-choices>
           ${CHOICES.map((c, i) => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
             background:${ans.includes(c)?"var(--brand)":"var(--surface)"};color:${ans.includes(c)?"#fff":"var(--muted)"};
@@ -174,12 +186,12 @@ async function loadGrid() {
         <select class="field" data-topic style="min-width:170px;flex:1">${topicOptions(q.topic ?? "")}</select>
         <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
         <button class="pill ${q.instruction_image_url?"pill-soft":"pill-ghost"}" data-toggle-instr>${q.instruction_image_url?"Instruction image added":"Add instruction image"}</button>
-        <span data-saved style="width:20px;color:var(--ok);opacity:0">✓</span>
+        <span data-saved style="width:20px;color:var(--ok-text);opacity:0">✓</span>
       </div>
       <textarea class="field hidden" data-review rows="4" style="margin-top:12px" placeholder="Worked answer shown after submission. Plain text or LaTeX, e.g. a = (v - u) / t">${q.review_text ?? ""}</textarea>
       <div class="hidden" data-instr-area style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <p class="muted" style="font-size:12.5px;flex-basis:100%">Shown to the student on its own, right before this question — e.g. the note before question 31 or 41 in a Chemistry paper.</p>
-        ${q.instruction_image_url ? `<img data-instr-preview src="${q.instruction_image_url}" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">` : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`}
+        ${q.instruction_image_url ? `<img data-instr-preview src="${q.instruction_image_url}" alt="Instruction image preview" loading="lazy" decoding="async" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">` : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`}
         <input type="file" accept="image/*" data-instr-file hidden>
         <button class="pill pill-soft" data-instr-upload>Upload image</button>
         <button class="pill pill-ghost" data-instr-remove ${q.instruction_image_url ? "" : "disabled"} style="${q.instruction_image_url ? "" : "opacity:.5"}">Remove</button>
@@ -235,7 +247,7 @@ async function loadGrid() {
     function paintInstrPreview(url) {
       const old = row.querySelector("[data-instr-preview]");
       const el = url
-        ? `<img data-instr-preview src="${url}" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">`
+        ? `<img data-instr-preview src="${url}" alt="Instruction image preview" loading="lazy" decoding="async" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">`
         : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`;
       old.outerHTML = el;
       row.querySelector("[data-instr-remove]").disabled = !url;

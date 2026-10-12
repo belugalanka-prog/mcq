@@ -58,7 +58,9 @@ export async function requireStaff() {
 }
 
 export async function signInWithGoogle() {
-  const base = (window.APP_CONFIG.SITE_URL || location.origin).replace(/\/+$/, "");
+  // Always send Google back to the site the visitor is actually on (works on the live domain,
+  // preview deploys and localhost). A stale/placeholder SITE_URL used to send people to a dead site.
+  const base = location.origin;
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${base}/dashboard.html` },

@@ -1,11 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Result — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exam Result | A/L Master</title>
+<meta name="description" content="Your score, topic breakdown and worked review of every question for this A/L MCQ attempt.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Exam Result | A/L Master">
+<meta property="og:description" content="Your score, topic breakdown and worked review of every question for this A/L MCQ attempt.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Exam Result | A/L Master">
+<meta name="twitter:description" content="Your score, topic breakdown and worked review of every question for this A/L MCQ attempt.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
 <style>
   .modal-backdrop{position:fixed;inset:0;background:rgba(27,24,52,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
@@ -15,14 +39,14 @@
 <div class="wrap">
   <div id="topbar"></div>
 <script src="js/motion.js"></script>
-  <div class="grid" style="grid-template-columns:1fr 1.4fr">
+  <div class="grid split-d">
     <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
       <p class="muted" id="r-title" style="font-size:14px"></p>
-      <p class="num" id="r-pct" style="margin-top:12px;font-size:56px;font-weight:600;line-height:1;color:var(--brand)"></p>
+      <p class="num" id="r-pct" style="margin-top:12px;font-size:56px;font-weight:600;line-height:1;color:var(--brand-text)"></p>
       <p class="num muted" id="r-score" style="margin-top:8px;font-size:15px"></p>
       <div class="grid g3" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--hairline)">
-        <div><p class="num" id="r-correct" style="font-size:19px;font-weight:600;color:var(--ok)"></p><p class="muted" style="font-size:12px">Correct</p></div>
-        <div><p class="num" id="r-wrong" style="font-size:19px;font-weight:600;color:var(--bad)"></p><p class="muted" style="font-size:12px">Wrong</p></div>
+        <div><p class="num" id="r-correct" style="font-size:19px;font-weight:600;color:var(--ok-text)"></p><p class="muted" style="font-size:12px">Correct</p></div>
+        <div><p class="num" id="r-wrong" style="font-size:19px;font-weight:600;color:var(--bad-text)"></p><p class="muted" style="font-size:12px">Wrong</p></div>
         <div><p class="num" id="r-skip" style="font-size:19px;font-weight:600"></p><p class="muted" style="font-size:12px">Skipped</p></div>
       </div>
       <p class="num muted" id="r-time" style="margin-top:16px;font-size:13px"></p>
@@ -43,7 +67,7 @@
   <div id="wrong-list" style="display:flex;flex-direction:column;gap:16px;margin-top:16px"></div>
 
   <div class="row" style="margin-top:16px">
-    <a id="another" href="#" class="pill pill-brand">Sit another paper</a>
+    <a id="another" href="subject.html" class="pill pill-brand">Sit another paper</a>
     <a href="leaderboard.html" class="pill pill-ghost">See the leaderboard</a>
   </div>
   <div id="ad-result" style="margin-top:16px"></div>
@@ -61,7 +85,7 @@
 <script type="module">
 import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { clock, esc, qs, CHOICES } from "./js/format.js";
 import { dbError } from "./js/db.js";
 const toNum = c => c ? CHOICES.indexOf(c) + 1 : null;
@@ -71,6 +95,7 @@ const session = await requireUser();
 if (!session) throw new Error("redirecting");
 
 mountRail();
+mountFooter();
 
 const { data: attempt, error: attemptError } = await supabase.from("attempts")
   .select("*,papers(title,subject,total_questions,marking_scheme_url,review_link_url,discussion_video_url)")
@@ -78,7 +103,7 @@ const { data: attempt, error: attemptError } = await supabase.from("attempts")
 
 if (attemptError || !attempt || attempt.user_id !== session.user.id || !attempt.completed_at) {
   dbError(attemptError, "loading result", { silent: true });
-  document.querySelector(".wrap").innerHTML = `<p>Result not found.${attemptError ? `<br><br><b>Error:</b> ${esc(attemptError.message)}` : ""}</p>`;
+  document.querySelector(".wrap").innerHTML = `<div class="card card-pad" style="max-width:480px;margin:40px auto;text-align:center"><h1 style="font-size:22px">Result not found</h1><p class="muted" style="margin-top:10px;font-size:14px">We couldn't find that attempt. It may belong to another account, or the link is wrong.${attemptError ? `<br><br>${esc(attemptError.message)}` : ""}</p><a href="results-index.html" class="pill pill-brand" style="margin-top:20px;justify-content:center">See my results</a></div>`;
   throw new Error("not found");
 }
 
@@ -89,6 +114,7 @@ mountAdSlot(document.getElementById("ad-result"), "RESULT_BOTTOM");
 document.getElementById("another").href = attempt.papers ? `subject.html?subject=${subject}` : `topics.html?subject=${subject}`;
 
 document.getElementById("r-title").textContent = attempt.papers?.title ?? attempt.topic ?? "";
+document.title = `Result: ${attempt.papers?.title ?? attempt.topic ?? "Exam"} | A/L Master`;
 document.getElementById("r-pct").textContent = `${attempt.percentage}%`;
 document.getElementById("r-score").textContent = `${attempt.score} out of ${totalQuestions}`;
 document.getElementById("r-correct").textContent = attempt.correct_count;
@@ -180,17 +206,17 @@ document.getElementById("wrong-list").innerHTML = items.filter(r => !r.is_correc
   return `<div class="card" id="q${q.question_number}" style="scroll-margin-top:24px">
     <div class="card-pad">
       <div class="row" style="margin-bottom:12px"><span class="chip num">Question ${q.question_number}</span>${q.topic ? `<span class="muted" style="font-size:13px">${esc(q.topic)}</span>` : ""}${q.papers?.title && !attempt.paper_id ? `<span class="muted num" style="font-size:12.5px;margin-left:auto">${esc(q.papers.title)}${q.papers.year ? ` (${q.papers.year})` : ""}</span>` : ""}</div>
-      <img class="qimg" src="${q.question_image_url}" alt="Question ${q.question_number}">
+      <img class="qimg" src="${q.question_image_url}" alt="Question ${q.question_number}" loading="lazy" decoding="async">
       <div class="row" style="margin-top:16px">
-        <span class="chip" style="background:rgba(240,71,108,.1);color:var(--bad)">You chose ${toNum(r.selected_answer) || "nothing"}</span>
-        <span class="chip" style="background:rgba(46,212,122,.12);color:var(--ok)">${
+        <span class="chip" style="background:rgba(240,71,108,.1);color:var(--bad-text)">You chose ${toNum(r.selected_answer) || "nothing"}</span>
+        <span class="chip" style="background:rgba(46,212,122,.12);color:var(--ok-text)">${
           !q.correct_answers?.length ? "No correct answer (voided)"
           : q.correct_answers.length === 5 ? "Any answer was correct"
           : `Answer is ${q.correct_answers.map(toNum).join(" or ")}`}</span>
       </div>
       ${(q.review_text || q.review_image_url) ? `<div style="margin-top:16px;border-radius:16px;padding:16px;background:var(--brand-soft)">
         ${q.review_text ? `<p style="white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(q.review_text)}</p>` : ""}
-        ${q.review_image_url ? `<img src="${q.review_image_url}" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
+        ${q.review_image_url ? `<img src="${q.review_image_url}" alt="Worked explanation for question ${q.question_number}" loading="lazy" decoding="async" style="margin-top:12px;width:100%;border-radius:12px">` : ""}
       </div>` : ""}
     </div></div>`;
 }).join("");

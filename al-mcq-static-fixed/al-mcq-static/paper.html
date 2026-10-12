@@ -1,21 +1,43 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Paper — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paper Details | A/L Master</title>
+<meta name="description" content="Paper overview, instructions and your previous attempts before you start a timed A/L MCQ paper on A/L Master.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Paper Details | A/L Master">
+<meta property="og:description" content="Paper overview, instructions and your previous attempts before you start a timed A/L MCQ paper on A/L Master.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Paper Details | A/L Master">
+<meta name="twitter:description" content="Paper overview, instructions and your previous attempts before you start a timed A/L MCQ paper on A/L Master.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8054120040596132"
-     crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="wrap">
   <div id="topbar"></div>
   <div id="ad-top" style="margin-bottom:16px"></div>
 
-  <div class="grid" style="grid-template-columns:1.6fr 1fr">
+  <div class="grid split-e">
     <div class="card card-pad">
       <span class="chip" id="kind"></span>
       <h1 id="title" style="margin-top:16px;font-size:30px;line-height:1.2"></h1>
@@ -33,7 +55,7 @@
         <div><p class="num" style="font-size:26px;font-weight:600" id="qcount"></p><p class="muted" style="font-size:13px">Questions</p></div>
         <div><p class="num" style="font-size:26px;font-weight:600" id="mins"></p><p class="muted" style="font-size:13px">Minutes</p></div>
       </div>
-      <div id="start-area" style="margin-top:24px"></div><button id="duel-open" class="pill" style="width:100%;justify-content:center;margin-top:10px;border:1px solid var(--line);background:transparent">Duel a friend</button>
+      <div id="start-area" style="margin-top:24px"></div><button id="duel-open" class="pill" style="width:100%;justify-content:center;margin-top:10px;border:1px solid var(--hairline);background:transparent">Duel a friend</button>
       <div id="duel-setup" class="card card-pad" style="display:none;margin-top:12px;background:var(--brand-soft);border-color:transparent">
         <h3 style="margin:0;font-size:16px">Duel a friend</h3>
         <p class="muted" style="font-size:12.5px;margin:4px 0 0;line-height:1.5">You both answer the same questions live. Your friend joins with a code.</p>
@@ -54,18 +76,19 @@
 <script type="module">
 import { requireUser, signInWithGoogle } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
-import { mountRail, mountTopbar, mountAdSlot } from "./js/shell.js";
+import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { titleCase, esc, qs } from "./js/format.js";
 import { dbError } from "./js/db.js";
 
 const paperId = qs("id");
 if (!(await requireUser())) throw new Error("redirecting to sign-in");
 mountRail();
+mountFooter();
 
 const { data: paper, error: paperError } = await supabase.from("papers").select("*").eq("id", paperId).eq("is_published", true).single();
 if (paperError || !paper) {
   dbError(paperError, "loading paper", { silent: true });
-  document.querySelector(".wrap").innerHTML = `<p>Paper not found.${paperError ? `<br><br><b>Error:</b> ${esc(paperError.message)}` : ""}</p>`;
+  document.querySelector(".wrap").innerHTML = `<div class="card card-pad" style="max-width:480px;margin:40px auto;text-align:center"><h1 style="font-size:22px">Paper not found</h1><p class="muted" style="margin-top:10px;font-size:14px">This paper may have been unpublished, or the link is wrong.${paperError ? `<br><br>${esc(paperError.message)}` : ""}</p><a href="subject.html" class="pill pill-brand" style="margin-top:20px;justify-content:center">Browse all papers</a></div>`;
   throw new Error("not found");
 }
 
@@ -76,6 +99,7 @@ const isSpecial = paper.paper_type === "special";
 const noun = isSpecial ? "MCQs" : "paper";
 document.getElementById("kind").textContent = isSpecial ? "Special MCQs" : titleCase(paper.paper_type);
 document.getElementById("title").textContent = paper.title;
+document.title = `${paper.title} | A/L Master`;
 document.getElementById("desc").textContent = paper.description || "";
 document.getElementById("qcount").textContent = paper.total_questions;
 document.getElementById("mins").textContent = paper.duration_minutes;
@@ -123,7 +147,7 @@ if (!session) {
         </button>
       </div>
       <button id="start" class="pill pill-brand" style="width:100%;justify-content:center;margin-top:16px">Start ${noun}</button>
-      <p id="err" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad)"></p>`;
+      <p id="err" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad-text)"></p>`;
     startArea.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { mode = b.dataset.mode; render(); }));
     document.getElementById("start").addEventListener("click", start);
   }
@@ -169,7 +193,7 @@ if (!session) {
       p_discuss: 60,
     });
     if (error) {
-      out.style.display = "block"; out.textContent = error.message; out.style.color = "var(--bad)";
+      out.style.display = "block"; out.textContent = error.message; out.style.color = "var(--bad-text)";
       btn.disabled = false; btn.textContent = "Create duel";
       return;
     }

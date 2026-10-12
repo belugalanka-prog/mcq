@@ -24,8 +24,10 @@ export function toast(message, type = "info") {
   if (!toastHost) {
     toastHost = document.createElement("div");
     toastHost.id = "app-toast-host";
+    toastHost.setAttribute("role", "status");
+    toastHost.setAttribute("aria-live", "polite");
     toastHost.style.cssText =
-      "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;" +
+      "position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:9999;" +
       "display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none";
     document.body.appendChild(toastHost);
   }
@@ -34,9 +36,9 @@ export function toast(message, type = "info") {
   item.style.cssText =
     "pointer-events:auto;padding:10px 16px;border-radius:10px;font-size:13px;" +
     "font-family:inherit;line-height:1.4;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);" +
-    "max-width:340px;text-align:center;opacity:0;transform:translateY(6px);" +
+    "max-width:min(340px,calc(100vw - 32px));text-align:center;opacity:0;transform:translateY(6px);" +
     "transition:opacity .18s ease,transform .18s ease;" +
-    `background:${type === "error" ? "#dc2626" : type === "success" ? "#16a34a" : "#111827"}`;
+    `background:${type === "error" ? "#dc2626" : type === "success" ? "#15803d" : "#111827"}`;
   toastHost.appendChild(item);
   requestAnimationFrame(() => {
     item.style.opacity = "1";

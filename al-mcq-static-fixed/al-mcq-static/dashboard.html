@@ -1,14 +1,36 @@
 <!doctype html>
 <html lang="en">
 
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard — A/L Master</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard | A/L Master</title>
+<meta name="description" content="Your A/L Master dashboard: new papers to do, unfinished attempts, accuracy by subject, streaks, duels and your leaderboard rank.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="Dashboard | A/L Master">
+<meta property="og:description" content="Your A/L Master dashboard: new papers to do, unfinished attempts, accuracy by subject, streaks, duels and your leaderboard rank.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dashboard | A/L Master">
+<meta name="twitter:description" content="Your A/L Master dashboard: new papers to do, unfinished attempts, accuracy by subject, streaks, duels and your leaderboard rank.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
+<script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8054120040596132"
-     crossorigin="anonymous"></script>
 <script>
   // Splash plays once per session (shared with login page); skipped for reduced-motion users.
   try{
@@ -81,7 +103,7 @@
   <div id="announcements" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
 
   <p class="section-label">Overview</p>
-  <div class="grid" style="grid-template-columns:1.35fr 2fr">
+  <div class="grid split-a">
     <div class="card card-pad" style="display:flex;flex-direction:column;justify-content:center">
       <h1 id="hero" style="font-size:34px;line-height:1.14">Hi!</h1>
       <p class="muted" style="margin-top:16px;max-width:38ch;font-size:14px">
@@ -92,7 +114,7 @@
   </div>
 
   <div class="card card-pad" style="margin-top:16px">
-    <div class="card-head"><h2>New papers to do</h2><a href="subject.html" style="font-size:13px;color:var(--brand)">Browse all</a></div>
+    <div class="card-head"><h2>New papers to do</h2><a href="subject.html" style="font-size:13px;color:var(--brand-text)">Browse all</a></div>
     <div id="recent-papers"><p class="muted" style="font-size:14px">Loading…</p></div>
   </div>
 
@@ -113,9 +135,9 @@
   </div>
 
   <p class="section-label">Activity</p>
-  <div class="grid" style="grid-template-columns:2fr 1fr">
+  <div class="grid split-b">
     <div class="card card-pad">
-      <div class="card-head"><h2>Recent attempts</h2><a href="results-index.html" style="font-size:13px;color:var(--brand)">See all</a></div>
+      <div class="card-head"><h2>Recent attempts</h2><a href="results-index.html" style="font-size:13px;color:var(--brand-text)">See all</a></div>
       <div id="attempts"><p class="muted" style="font-size:14px">Loading…</p></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
@@ -133,25 +155,28 @@
                  style="text-align:center;letter-spacing:.25em;font-weight:600;text-transform:uppercase;min-width:0">
           <button id="duel-join-btn" class="pill pill-brand" type="button">Join</button>
         </div>
-        <p id="duel-join-err" style="margin-top:6px;font-size:12.5px;color:var(--bad)"></p>
+        <p id="duel-join-err" style="margin-top:6px;font-size:12.5px;color:var(--bad-text)"></p>
         <div id="recent-duels" style="margin-top:6px"><p class="muted" style="font-size:13px">Loading…</p></div>
       </div>
     </div>
   </div>
 
   <p class="section-label">Requests</p>
-  <div class="grid" style="grid-template-columns:1.4fr 1fr">
+  <div class="grid split-c">
     <div class="card card-pad">
       <div class="card-head"><h2>Request a paper</h2></div>
       <p class="muted" style="font-size:13px;margin-bottom:12px">Don't see the paper you need? Ask for it here.</p>
       <form id="request-form" style="display:flex;flex-direction:column;gap:10px">
-        <select class="field" name="subject">
+        <label class="field-label" for="request-subject">Subject</label>
+        <select id="request-subject" class="field" name="subject">
           <option value="physics">Physics</option>
           <option value="chemistry">Chemistry</option>
         </select>
-        <textarea class="field" name="note" rows="2" placeholder="e.g. 2019 past paper, or a topic paper on Electrostatics" required></textarea>
-        <button class="pill pill-brand" style="justify-content:center">Send request</button>
-        <p id="request-msg" class="muted" style="font-size:13px"></p>
+        <label class="field-label" for="request-note">What do you need?</label>
+        <textarea id="request-note" class="field" name="note" rows="2" maxlength="500" minlength="8" placeholder="e.g. 2019 past paper, or a topic paper on Electrostatics" required></textarea>
+        <div class="hp-field" aria-hidden="true"><label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <button type="submit" class="pill pill-brand" style="justify-content:center">Send request</button>
+        <p id="request-msg" class="form-msg" role="status" aria-live="polite"></p>
       </form>
     </div>
     <div class="card card-pad">
@@ -194,7 +219,7 @@ import { requireUser } from "./js/auth.js";
 import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { clock, esc, titleCase } from "./js/format.js";
-import { dbError } from "./js/db.js";
+import { dbError, toast } from "./js/db.js";
 
 mountRail();
 mountFooter(document.getElementById("footer"));
@@ -217,7 +242,7 @@ const { data: announcements, error: announcementsError } = await supabase.from("
 dbError(announcementsError, "loading announcements", { silent: true });
 document.getElementById("announcements").innerHTML = (announcements ?? []).map(a => `
   <div class="card card-pad" style="background:var(--brand-soft);border:none">
-    <p style="font-size:14px;font-weight:600;color:var(--brand)">${esc(a.title)}</p>
+    <p style="font-size:14px;font-weight:600;color:var(--brand-text)">${esc(a.title)}</p>
     ${a.body ? `<p class="muted" style="margin-top:4px;font-size:13px;white-space:pre-wrap">${esc(a.body)}</p>` : ""}
   </div>`).join("");
 window.motionRefresh?.();
@@ -240,15 +265,15 @@ if (session) {
   ].map(([type,title,note,tint]) => `
     <a href="subject.html?subject=physics&type=${type}" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between">
       <div style="height:80px;border-radius:16px;background:${tint};display:grid;place-items:center;margin-bottom:24px">
-        <span class="display" style="font-size:22px;color:var(--brand)">${title.split(" ")[0]}</span>
+        <span class="display" style="font-size:22px;color:var(--brand-text)">${title.split(" ")[0]}</span>
       </div>
       <div><p style="font-size:15px;font-weight:500">${title}</p><p class="muted" style="margin-top:4px;font-size:13px">${note}</p></div>
     </a>`).join("") + `
     <a href="subject.html" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between;background:var(--brand-soft);border:none">
       <div style="height:80px;border-radius:16px;background:#fff;display:grid;place-items:center;margin-bottom:24px">
-        <span class="display" style="font-size:22px;color:var(--brand)">All</span>
+        <span class="display" style="font-size:22px;color:var(--brand-text)">All</span>
       </div>
-      <div><p style="font-size:15px;font-weight:500;color:var(--brand)">Browse everything</p><p class="muted" style="margin-top:4px;font-size:13px">Search and filter every paper, both subjects</p></div>
+      <div><p style="font-size:15px;font-weight:500;color:var(--brand-text)">Browse everything</p><p class="muted" style="margin-top:4px;font-size:13px">Search and filter every paper, both subjects</p></div>
     </a>`;
   window.motionRefresh?.();
 
@@ -301,11 +326,11 @@ if (session) {
   document.getElementById("run-stats").innerHTML = `
     <div><p class="num" data-count="${stats?.completed_papers ?? 0}" style="font-size:24px;font-weight:600">${stats?.completed_papers ?? 0}</p><p class="muted" style="font-size:13px">Papers done</p></div>
     <div><p class="num" data-count="${Math.round(stats?.accuracy ?? 0)}" data-suffix="%" style="font-size:24px;font-weight:600">${Math.round(stats?.accuracy ?? 0)}%</p><p class="muted" style="font-size:13px">Accuracy</p></div>
-    <div><p class="num" data-count="${stats?.current_streak ?? 0}" style="font-size:24px;font-weight:600;color:var(--warn)">${stats?.current_streak ?? 0}</p><p class="muted" style="font-size:13px">Day streak</p></div>`;
+    <div><p class="num" data-count="${stats?.current_streak ?? 0}" style="font-size:24px;font-weight:600;color:var(--warn-text)">${stats?.current_streak ?? 0}</p><p class="muted" style="font-size:13px">Day streak</p></div>`;
 
   document.getElementById("points").innerHTML = `
     <div class="row" style="align-items:baseline;gap:8px">
-      <p class="num" data-count="${stats?.total_points ?? 0}" style="font-size:30px;font-weight:600;color:var(--brand)">${stats?.total_points ?? 0}</p>
+      <p class="num" data-count="${stats?.total_points ?? 0}" style="font-size:30px;font-weight:600;color:var(--brand-text)">${stats?.total_points ?? 0}</p>
       <p class="muted" style="font-size:13px">points</p>
     </div>
     <p class="muted" style="margin-top:4px;font-size:13px">${stats?.correct_answers ?? 0} correct answers so far</p>`;
@@ -328,7 +353,7 @@ if (session) {
   document.getElementById("resume").innerHTML = running ? `
     <a href="exam.html?attempt=${running.id}" class="row between" style="background:var(--brand-soft);border-radius:16px;padding:16px;justify-content:space-between">
       <div><p style="font-size:15px;font-weight:500">${esc(running.paper_title)}</p>
-        <p class="num" style="margin-top:4px;font-size:13px;color:var(--brand)">${running.paused ? "⏸ Paused" : `${clock(running.seconds_left)} left`}</p></div>
+        <p class="num" style="margin-top:4px;font-size:13px;color:var(--brand-text)">${running.paused ? "⏸ Paused" : `${clock(running.seconds_left)} left`}</p></div>
       <span class="pill pill-brand">Resume</span>
     </a>` : `<p class="muted" style="font-size:14px">Nothing in progress. Start a paper and it will wait here if you get interrupted.</p>`;
 
@@ -376,24 +401,46 @@ if (session) {
   }
   loadRequests();
 
-  document.getElementById("request-form").addEventListener("submit", async (e) => {
+  // Request form: validated, rate-limited in the browser and guarded by a hidden honeypot field.
+  // (The real limit has to live in the database — see supabase/migration-spam-guard.sql.)
+  const requestForm = document.getElementById("request-form");
+  const reqShownAt = Date.now();
+  requestForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const note = fd.get("note")?.toString().trim();
+    const note = fd.get("note")?.toString().trim() ?? "";
     const msg = document.getElementById("request-msg");
-    if (!note) return;
-    const btn = e.target.querySelector("button");
-    btn.disabled = true;
+    const noteEl = e.target.elements.note;
+    const fail = (text) => { msg.className = "form-msg err"; msg.textContent = text; noteEl.setAttribute("aria-invalid", "true"); noteEl.focus(); };
+    noteEl.removeAttribute("aria-invalid");
+
+    if (fd.get("website")) return;                                   // honeypot: real people never see/fill this
+    if (note.length < 8) return fail("Please describe the paper you need (at least 8 characters).");
+    if (note.length > 500) return fail("That's a bit long — keep it under 500 characters.");
+    if (Date.now() - reqShownAt < 2500) return fail("Please give that a second look, then send again.");
+    let last = 0; try { last = Number(localStorage.getItem("req_last_at") || 0); } catch {}
+    if (Date.now() - last < 30000) return fail("You just sent a request — please wait a few seconds before sending another.");
+
+    const btn = e.target.querySelector("button[type=submit], button:not([type])");
+    btn.disabled = true; const label = btn.textContent; btn.textContent = "Sending…";
+    msg.className = "form-msg"; msg.textContent = "";
     const { error } = await supabase.from("paper_requests").insert({
       user_id: user.id, subject: fd.get("subject"), note,
     });
-    btn.disabled = false;
-    if (error) { dbError(error, "sending request", { silent: true }); msg.style.color = "var(--bad)"; msg.textContent = "Could not send that. Try again."; return; }
-    msg.style.color = "var(--ok)";
-    msg.textContent = "Sent — thanks!";
+    btn.disabled = false; btn.textContent = label;
+    if (error) {
+      dbError(error, "sending request", { silent: true });
+      msg.className = "form-msg err"; msg.textContent = "We couldn't send that. Check your connection and try again.";
+      toast("Request not sent — please try again.", "error");
+      return;
+    }
+    try { localStorage.setItem("req_last_at", String(Date.now())); } catch {}
+    msg.className = "form-msg ok"; msg.textContent = "Sent — thank you! We'll look into it.";
+    toast("Request sent. Thank you!", "success");
     e.target.reset();
     loadRequests();
   });
+
 }
 </script>
 <script src="js/motion.js"></script>
