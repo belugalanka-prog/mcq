@@ -218,3 +218,7 @@ button,.pill,.option,.rail-item,.back-btn{touch-action:manipulation}
 [data-theme="dark"] .site-footer{border-color:var(--hairline)}
 /* Don't show alt text as a visible caption when an avatar has no photo */
 img.avatar:not([src]),img.avatar[src=""],#avatar:not([src]),#avatar[src=""]{visibility:hidden}
+
+/* Images: no drag-out and no long-press save menu on iOS */
+img{-webkit-user-drag:none;-webkit-touch-callout:none}
+input,textarea,select{-webkit-touch-callout:default}
