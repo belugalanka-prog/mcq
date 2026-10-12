@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en"> 
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A/L Past, Topic &amp; Model Papers | A/L Master</title>
+<meta name="description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A/L Master">
+<meta property="og:title" content="A/L Past, Topic &amp; Model Papers | A/L Master">
+<meta property="og:description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta property="og:image" content="https://almcq.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A/L Master — A/L Physics and Chemistry MCQ practice papers">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A/L Past, Topic &amp; Model Papers | A/L Master">
+<meta name="twitter:description" content="Browse A/L Physics and Chemistry MCQ past papers, topic papers and model papers, filter by year or series and start a timed attempt.">
+<meta name="twitter:image" content="https://almcq.vercel.app/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="config.js"></script>
+<script src="js/consent.js" defer></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar"></div>
+  <h1 style="font-size:32px">All papers</h1>
+  <p class="muted" style="margin-top:8px;font-size:14px">Every paper in one place. Filter by subject and kind, or just search — exam mode runs the clock and holds the answers until you submit.</p>
+
+  <div style="margin-top:24px">
+    <p class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Subject</p>
+    <div class="row" id="subject-tabs" style="flex-wrap:wrap"></div>
+  </div>
+  <div style="margin-top:16px">
+    <p class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Kind</p>
+    <div class="row" id="type-tabs" style="flex-wrap:wrap"></div>
+  </div>
+  <div class="row" id="group-tabs" style="margin-top:14px;flex-wrap:wrap"></div>
+
+  <div id="papers" style="margin-top:20px"></div>
+  <div id="ad-sidebar" style="margin-top:16px"></div>
+</div>
+
+<script type="module">
+import { requireUser } from "./js/auth.js";
+import { supabase } from "./js/supabase.js";
+import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
+import { titleCase, esc, qs } from "./js/format.js";
+import { dbError } from "./js/db.js";
+
+if (!(await requireUser())) throw new Error("redirecting to sign-in");
+mountRail();
+mountFooter();
+mountTopbar({ tabs: [
+  {href:"subject.html", label:"All papers"},
+  {href:"topics.html", label:"Lessons"},
+  {href:"dashboard.html", label:"Dashboard"},
+]});
+mountAdSlot(document.getElementById("ad-sidebar"), "SIDEBAR", 180);
+
+const SUBJECTS = [["all","All subjects"],["physics","Physics"],["chemistry","Chemistry"]];
+const TYPES = [["all","All kinds"],["past","Past papers"],["topic","Topic papers"],["model","Model papers"],["teacher","Teacher papers"],["special","Special MCQs"]];
+
+// State, seeded from the URL so old links (e.g. subject.html?subject=physics&type=past)
+// still land pre-filtered, and so filter choices are shareable / survive a refresh.
+let subjectFilter = qs("subject", "all");
+if (subjectFilter !== "all") document.title = `${titleCase(subjectFilter)} Papers | A/L Master`;
+let typeFilter = qs("type", "all");
+let group = qs("group");
+if (!SUBJECTS.some(([k]) => k === subjectFilter)) subjectFilter = "all";
+if (!TYPES.some(([k]) => k === typeFilter)) typeFilter = "all";
+
+const { data: papers, error: papersError } = await supabase.from("papers")
+  .select("id,title,subject,paper_type,year,duration_minutes,total_questions,description,group_name")
+  .eq("is_published", true)
+  .order("year", { ascending: false });
+dbError(papersError, "loading papers");
+const all = papers ?? [];
+
+const natural = (a, b) => (a ?? "").localeCompare(b ?? "", undefined, { numeric: true, sensitivity: "base" });
+
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (subjectFilter !== "all") p.set("subject", subjectFilter);
+  if (typeFilter !== "all") p.set("type", typeFilter);
+  if (group) p.set("group", group);
+  const q = document.getElementById("topbar-search")?.value?.trim();
+  if (q) p.set("q", q);
+  history.replaceState(null, "", p.toString() ? `subject.html?${p}` : "subject.html");
+}
+
+function renderTabs() {
+  document.getElementById("subject-tabs").innerHTML = SUBJECTS.map(([k, l]) =>
+    `<button type="button" class="pill ${k === subjectFilter ? "pill-brand" : "pill-ghost"}" data-subject="${k}">${l}</button>`).join("");
+  document.getElementById("type-tabs").innerHTML = TYPES.map(([k, l]) =>
+    `<button type="button" class="pill ${k === typeFilter ? "pill-brand" : "pill-ghost"}" data-type="${k}">${l}</button>`).join("");
+
+  document.querySelectorAll("[data-subject]").forEach(btn => btn.addEventListener("click", () => {
+    subjectFilter = btn.dataset.subject; group = null; renderTabs(); renderPapers();
+  }));
+  document.querySelectorAll("[data-type]").forEach(btn => btn.addEventListener("click", () => {
+    typeFilter = btn.dataset.type; group = null; renderTabs(); renderPapers();
+  }));
+}
+
+function card(p) {
+  const searchText = [p.title, p.year, p.group_name, p.description, titleCase(p.subject), TYPES.find(t => t[0] === p.paper_type)?.[1]].filter(Boolean).join(" ");
+  return `
+  <a href="paper.html?id=${p.id}" class="card card-pad" data-search-item="${esc(searchText)}">
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      ${p.year ? `<span class="chip num">${p.year}</span>` : ""}
+      ${(subjectFilter === "all" || typeFilter === "all") ? `<span class="chip">${typeFilter === "all" ? TYPES.find(t => t[0] === p.paper_type)?.[1] : titleCase(p.subject)}</span>` : ""}
+    </div>
+    <p style="margin-top:12px;font-size:16px;font-weight:500;line-height:1.3">${esc(p.title)}</p>
+    ${p.description ? `<p class="muted" style="margin-top:8px;font-size:13px">${esc(p.description)}</p>` : ""}
+    <p class="num muted" style="margin-top:16px;font-size:13px">${p.total_questions} questions · ${p.duration_minutes} min</p>
+  </a>`;
+}
+
+function renderPapers() {
+  syncUrl();
+  const bySubjectType = all.filter(p =>
+    (subjectFilter === "all" || p.subject === subjectFilter) &&
+    (typeFilter === "all" || p.paper_type === typeFilter));
+
+  // Group tabs only make sense once the list has been narrowed to one kind —
+  // "group_name" is a series within a kind (e.g. "2024 monthly tests").
+  const allGroups = typeFilter !== "all"
+    ? [...new Set(bySubjectType.map(p => p.group_name).filter(Boolean))].sort(natural)
+    : [];
+  const groupTabsEl = document.getElementById("group-tabs");
+  if (allGroups.length > 1) {
+    groupTabsEl.innerHTML =
+      `<button type="button" class="pill ${!group ? "pill-soft" : "pill-ghost"}" data-group="">All</button>` +
+      allGroups.map(g => `<button type="button" class="pill ${g === group ? "pill-soft" : "pill-ghost"}" data-group="${esc(g)}">${esc(g)}</button>`).join("");
+    groupTabsEl.querySelectorAll("[data-group]").forEach(btn => btn.addEventListener("click", () => {
+      group = btn.dataset.group || null; renderPapers();
+    }));
+  } else {
+    groupTabsEl.innerHTML = "";
+  }
+
+  const shown = bySubjectType.filter(p => !group || p.group_name === group);
+  const papersEl = document.getElementById("papers");
+
+  if (!shown.length) {
+    papersEl.innerHTML = `<div class="card card-pad"><p class="muted" style="font-size:14px">No papers match these filters yet. Try a different subject or kind, or check back shortly.</p></div>`;
+    return;
+  }
+
+  let sectionsHtml;
+  if (typeFilter === "all") {
+    // Section by kind so it reads like a menu, not a wall of cards.
+    const order = TYPES.filter(([k]) => k !== "all").map(([k]) => k);
+    sectionsHtml = order.filter(k => shown.some(p => p.paper_type === k)).map(k => {
+      const items = shown.filter(p => p.paper_type === k).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || natural(a.title, b.title));
+      return `<h2 style="font-size:18px;margin:28px 0 12px">${TYPES.find(t => t[0] === k)[1]}</h2>
+        <div class="grid g3">${items.map(card).join("")}</div>`;
+    }).join("");
+  } else {
+    const sections = new Map();
+    shown.forEach(p => { const k = p.group_name ?? ""; if (!sections.has(k)) sections.set(k, []); sections.get(k).push(p); });
+    const keys = [...sections.keys()].sort((a, b) => a === "" ? 1 : b === "" ? -1 : natural(a, b));
+    const heads = allGroups.length > 0;
+    sectionsHtml = keys.map(k => {
+      const items = sections.get(k).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || natural(a.title, b.title));
+      return `${heads ? `<h2 style="font-size:18px;margin:28px 0 12px">${k ? esc(k) : "Other papers"}</h2>` : ""}
+        <div class="grid g3">${items.map(card).join("")}</div>`;
+    }).join("");
+  }
+
+  papersEl.innerHTML = sectionsHtml + `<div class="card card-pad" data-search-empty style="display:none;margin-top:20px"><p class="muted" style="font-size:14px">No papers match your search.</p></div>`;
+
+  // Cards were just (re)rendered — re-run the top-bar search filter so a
+  // `?q=` deep link, or whatever the visitor already typed, still applies.
+  document.getElementById("topbar-search")?.dispatchEvent(new Event("input"));
+}
+
+renderTabs();
+renderPapers();
+</script><script src="js/motion.js"></script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin: Questions | A/L Master</title>
+<meta name="description" content="A/L Master admin — questions. Staff only.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#5a4be1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/styles.css">
+<script src="../../config.js"></script>
+<script src="../../js/consent.js" defer></script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+</head>
+<body>
+<div style="max-width:1280px;margin:0 auto;padding:24px 20px">
+  <div class="row" id="admin-header" style="margin-bottom:24px"></div>
+  <h1 id="admin-title" style="font-size:30px;margin-bottom:20px"></h1>
+
+  <div class="grid split-f" style="align-items:start">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card card-pad">
+        <div class="card-head"><h2>Upload questions</h2></div>
+        <div id="dropzone" style="border:1px dashed var(--brand);background:var(--brand-soft);border-radius:18px;padding:36px 20px;text-align:center;cursor:pointer">
+          <p style="font-size:15px;font-weight:500;color:var(--brand-text)">Drop all 50 question images here</p>
+          <p class="muted" style="margin-top:6px;font-size:13px;max-width:38ch;margin-left:auto;margin-right:auto">Name them 001.png through 050.png. They are converted to WebP in your browser before upload, so large screenshots stay fast to load.</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*" multiple hidden>
+        <div id="upload-progress" style="margin-top:16px"></div>
+        <p id="upload-error" class="muted" style="margin-top:12px;font-size:13px;color:var(--bad-text)"></p>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h2>Paste answer key</h2></div>
+        <p class="muted" style="font-size:13px;margin-bottom:10px">Paste the whole key at once, in question order: <code>ABCDE…</code>, <code>A B C D…</code>, digits <code>1 to 5</code> (1=A), or numbered like <code>1-C 2-A 3-E</code>. Use <code>X</code> for "all of the above" and <code>0</code> for "none of the above" (e.g. <code>1-C 2-X 3-0</code>).</p>
+        <textarea id="key-input" class="field" rows="3" placeholder="CADBEACDBE…"></textarea>
+        <button id="key-apply" class="pill pill-brand" style="margin-top:10px;justify-content:center;width:100%">Apply key</button>
+        <p id="key-msg" class="muted" style="margin-top:10px;font-size:13px"></p>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h2>Progress</h2></div>
+        <div class="bar"><span id="progress-bar" style="width:0%"></span></div>
+        <p class="num" id="progress-text" style="margin-top:12px;font-size:14px"></p>
+        <p class="muted" id="review-note" style="margin-top:4px;font-size:13px"></p>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="card-head"><h2>Answer key</h2></div>
+      <p class="muted" style="font-size:13px;margin-bottom:16px">Click one or more options (a question can have more than one correct choice), or press A to E on your keyboard to set a single answer and drop to the next question. Use "All" when every choice is correct, or "None" when the question has no correct answer (voided). Each row saves on its own.</p>
+      <div id="grid"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { requireStaff } from "../../js/auth.js";
+import { supabase } from "../../js/supabase.js";
+import { mountAdminShell } from "../../js/admin-shell.js";
+import { CHOICES, qs, esc } from "../../js/format.js";
+import { pool, numberFromName, uploadQuestionImages, saveQuestionRows, toWebp } from "../../js/upload.js";
+import { TOPICS } from "../../js/topics.js";
+import { dbError } from "../../js/db.js";
+
+const paperId = qs("paper");
+const session = await requireStaff();
+if (!session) throw new Error("redirecting");
+
+const { data: paper, error: paperError } = await supabase.from("papers").select("*").eq("id", paperId).single();
+if (paperError || !paper) {
+  dbError(paperError, "loading paper", { silent: true });
+  document.body.innerHTML = `<p style='padding:40px'>Paper not found.${paperError ? `<br><br><b>Error:</b> ${paperError.message}` : ""}</p>`;
+  throw new Error("not found");
+}
+
+mountAdminShell(paper.title, `<a href="papers.html" class="pill pill-ghost">All papers</a>`);
+
+// A/L syllabus units, by subject — shared with the student "practice by
+// lesson" picker (js/topics.js). Value stored on the question is the
+// English name only (e.g. "Mechanics") — the Sinhala name here is just
+// to make the dropdown easier to scan while tagging.
+const topicList = TOPICS[paper.subject] ?? [];
+function topicOptions(selected) {
+  const opts = topicList.map((t, i) =>
+    `<option value="${escAttr(t[0])}" ${selected === t[0] ? "selected" : ""}>${String(i + 1).padStart(2, "0")} — ${esc(t[0])} (${esc(t[1])})</option>`).join("");
+  const custom = selected && !topicList.some(t => t[0] === selected)
+    ? `<option value="${escAttr(selected)}" selected>${esc(selected)}</option>` : "";
+  return `<option value="">No topic</option>${opts}${custom}`;
+}
+const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
+
+async function handleFiles(fileList) {
+  const list = Array.from(fileList);
+  const usable = [], unnamed = [];
+  list.forEach(f => { const n = numberFromName(f.name); n === null ? unnamed.push(f.name) : usable.push({ file: f, n }); });
+
+  const errEl = document.getElementById("upload-error");
+  errEl.textContent = "";
+  if (!usable.length) { errEl.textContent = "No file name contained a question number. Rename them 001.png, 002.png and so on."; return; }
+  if (unnamed.length) errEl.textContent = `Skipped ${unnamed.length} file(s) with no number in the name: ${unnamed.slice(0,3).join(", ")}${unnamed.length>3?"…":""}`;
+
+  usable.sort((a,b) => a.n - b.n);
+  const progressEl = document.getElementById("upload-progress");
+  const paint = (d, t) => progressEl.innerHTML = `<div class="bar"><span style="width:${(d/t)*100}%"></span></div><p class="num muted" style="margin-top:8px;font-size:13px">Uploading ${d} of ${t}</p>`;
+  paint(0, usable.length);
+
+  const { rows, failed } = await uploadQuestionImages(paper, usable, paint);
+  progressEl.innerHTML = "";
+  if (failed.length) errEl.textContent = `${failed.length} failed: ${failed.slice(0,2).join("; ")}${failed.length>2?"…":""}`;
+
+  if (rows.length) {
+    try {
+      const { added, replaced } = await saveQuestionRows(paper, rows);
+      errEl.style.color = "var(--muted)";
+      if (!failed.length && !unnamed.length) errEl.textContent = `${added} added${replaced ? `, ${replaced} images replaced (answers kept)` : ""}.`;
+      await loadGrid();
+    } catch (e) { errEl.style.color = "var(--bad-text)"; errEl.textContent = e.message; }
+  }
+  document.getElementById("file-input").value = "";
+}
+
+document.getElementById("dropzone").addEventListener("click", () => document.getElementById("file-input").click());
+document.getElementById("dropzone").addEventListener("dragover", e => e.preventDefault());
+document.getElementById("dropzone").addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+document.getElementById("file-input").addEventListener("change", e => e.target.files.length && handleFiles(e.target.files));
+
+async function loadGrid() {
+  const { data: questions, error: questionsError } = await supabase.from("questions")
+    .select("id,question_number,question_image_url,correct_answers,topic,review_text,review_image_url,instruction_image_url")
+    .eq("paper_id", paper.id).order("question_number");
+  dbError(questionsError, "loading questions");
+
+  const entered = questions?.length ?? 0;
+  const missingReview = questions?.filter(q => !q.review_text && !q.review_image_url).length ?? 0;
+  const missingKey = questions?.filter(q => !q.correct_answers?.length).length ?? 0;
+  const total = paper.total_questions || entered || 1;
+  document.getElementById("progress-bar").style.width = `${Math.min(100, (entered/total)*100)}%`;
+  document.getElementById("progress-text").textContent = `${entered} of ${paper.total_questions || entered} questions uploaded`;
+  document.getElementById("review-note").textContent =
+    (missingKey ? `${missingKey} question(s) have no answer set yet — students can't be graded on those until you set one. ` : "") +
+    (missingReview === 0
+      ? "Every question has a worked answer."
+      : `${missingReview} still have no worked answer. Students can still sit the paper, but they will not see an explanation for those.`);
+
+  const gridEl = document.getElementById("grid");
+  if (!questions?.length) {
+    gridEl.innerHTML = `<p class="muted" style="font-size:14px">Nothing uploaded yet. Drop the question images on the left and the key appears here.</p>`;
+    return;
+  }
+
+  const paintChoice = (btn, on) => {
+    btn.style.background = on ? "var(--brand)" : "var(--surface)";
+    btn.style.color = on ? "#fff" : "var(--muted)";
+    btn.style.borderColor = on ? "var(--brand)" : "var(--hairline)";
+  };
+  const paintSpecial = (btn, on, color) => {
+    btn.style.background = on ? color : "var(--surface)";
+    btn.style.color = on ? "#fff" : "var(--muted)";
+    btn.style.borderColor = on ? color : "var(--hairline)";
+  };
+
+  gridEl.innerHTML = questions.map(q => {
+    const ans = q.correct_answers ?? [];
+    const isAll = ans.length === CHOICES.length;
+    const isNone = ans.length === 0;
+    return `
+    <div id="row-${q.question_number}" data-qid="${q.id}" data-n="${q.question_number}" style="border-top:1px solid var(--hairline);padding:14px 0">
+      <div class="row">
+        <span class="chip num" style="width:48px;justify-content:center">${q.question_number}</span>
+        <img src="${q.question_image_url}" alt="Question ${q.question_number ?? ''} thumbnail" loading="lazy" decoding="async" style="height:44px;width:64px;border-radius:10px;object-fit:cover;border:1px solid var(--hairline)">
+        <div class="row" style="gap:6px" data-choices>
+          ${CHOICES.map((c, i) => `<button class="num" data-choice="${c}" style="width:36px;height:36px;border-radius:11px;font-size:13px;font-weight:600;
+            background:${ans.includes(c)?"var(--brand)":"var(--surface)"};color:${ans.includes(c)?"#fff":"var(--muted)"};
+            border:1px solid ${ans.includes(c)?"var(--brand)":"var(--hairline)"}">${i + 1}</button>`).join("")}
+          <button class="num" data-all style="width:44px;height:36px;border-radius:11px;font-size:11px;font-weight:600;
+            background:${isAll?"var(--ok)":"var(--surface)"};color:${isAll?"#fff":"var(--muted)"};border:1px solid ${isAll?"var(--ok)":"var(--hairline)"}">All</button>
+          <button class="num" data-none style="width:52px;height:36px;border-radius:11px;font-size:11px;font-weight:600;
+            background:${isNone?"var(--bad)":"var(--surface)"};color:${isNone?"#fff":"var(--muted)"};border:1px solid ${isNone?"var(--bad)":"var(--hairline)"}">None</button>
+        </div>
+        <select class="field" data-topic style="min-width:170px;flex:1">${topicOptions(q.topic ?? "")}</select>
+        <button class="pill ${q.review_text||q.review_image_url?"pill-soft":"pill-ghost"}" data-toggle-review>${q.review_text||q.review_image_url?"Answer written":"Add answer"}</button>
+        <button class="pill ${q.instruction_image_url?"pill-soft":"pill-ghost"}" data-toggle-instr>${q.instruction_image_url?"Instruction image added":"Add instruction image"}</button>
+        <span data-saved style="width:20px;color:var(--ok-text);opacity:0">✓</span>
+      </div>
+      <textarea class="field hidden" data-review rows="4" style="margin-top:12px" placeholder="Worked answer shown after submission. Plain text or LaTeX, e.g. a = (v - u) / t">${q.review_text ?? ""}</textarea>
+      <div class="hidden" data-instr-area style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <p class="muted" style="font-size:12.5px;flex-basis:100%">Shown to the student on its own, right before this question — e.g. the note before question 31 or 41 in a Chemistry paper.</p>
+        ${q.instruction_image_url ? `<img data-instr-preview src="${q.instruction_image_url}" alt="Instruction image preview" loading="lazy" decoding="async" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">` : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`}
+        <input type="file" accept="image/*" data-instr-file hidden>
+        <button class="pill pill-soft" data-instr-upload>Upload image</button>
+        <button class="pill pill-ghost" data-instr-remove ${q.instruction_image_url ? "" : "disabled"} style="${q.instruction_image_url ? "" : "opacity:.5"}">Remove</button>
+        <span data-instr-msg class="muted" style="font-size:12.5px"></span>
+      </div>
+    </div>`;
+  }).join("");
+
+  gridEl.querySelectorAll("[data-qid]").forEach(row => {
+    const qid = row.dataset.qid, n = Number(row.dataset.n);
+    const saved = row.querySelector("[data-saved]");
+    let current = new Set((questions.find(q => q.id === qid)?.correct_answers) ?? []);
+
+    async function patch(changes) {
+      const { error } = await supabase.from("questions").update(changes).eq("id", qid);
+      if (dbError(error, "saving question")) return;
+      saved.style.opacity = "1";
+      setTimeout(() => saved.style.opacity = "0", 1400);
+    }
+
+    function repaint() {
+      row.querySelectorAll("[data-choice]").forEach(b => paintChoice(b, current.has(b.dataset.choice)));
+      paintSpecial(row.querySelector("[data-all]"), current.size === CHOICES.length, "var(--ok)");
+      paintSpecial(row.querySelector("[data-none]"), current.size === 0, "var(--bad)");
+    }
+
+    function setAnswers(next) {
+      current = next;
+      repaint();
+      patch({ correct_answers: [...current] });
+    }
+
+    row.querySelectorAll("[data-choice]").forEach(btn => btn.addEventListener("click", () => {
+      const next = new Set(current);
+      next.has(btn.dataset.choice) ? next.delete(btn.dataset.choice) : next.add(btn.dataset.choice);
+      setAnswers(next);
+    }));
+    row.querySelector("[data-all]").addEventListener("click", () => setAnswers(new Set(CHOICES)));
+    row.querySelector("[data-none]").addEventListener("click", () => setAnswers(new Set()));
+
+    row.querySelector("[data-topic]").addEventListener("change", e => patch({ topic: e.target.value || null }));
+
+    row.querySelector("[data-toggle-review]").addEventListener("click", () => {
+      row.querySelector("[data-review]").classList.toggle("hidden");
+    });
+    row.querySelector("[data-review]").addEventListener("blur", e => patch({ review_text: e.target.value || null }));
+
+    row.querySelector("[data-toggle-instr]").addEventListener("click", () => {
+      row.querySelector("[data-instr-area]").classList.toggle("hidden");
+    });
+    const instrMsg = row.querySelector("[data-instr-msg]");
+    const instrBtn = row.querySelector("[data-toggle-instr]");
+    function paintInstrPreview(url) {
+      const old = row.querySelector("[data-instr-preview]");
+      const el = url
+        ? `<img data-instr-preview src="${url}" alt="Instruction image preview" loading="lazy" decoding="async" style="height:70px;width:110px;object-fit:cover;border-radius:10px;border:1px solid var(--hairline)">`
+        : `<span data-instr-preview class="muted" style="font-size:12.5px">No image yet</span>`;
+      old.outerHTML = el;
+      row.querySelector("[data-instr-remove]").disabled = !url;
+      row.querySelector("[data-instr-remove]").style.opacity = url ? "1" : ".5";
+      instrBtn.textContent = url ? "Instruction image added" : "Add instruction image";
+      instrBtn.className = `pill ${url ? "pill-soft" : "pill-ghost"}`;
+    }
+    row.querySelector("[data-instr-upload]").addEventListener("click", () => row.querySelector("[data-instr-file]").click());
+    row.querySelector("[data-instr-file]").addEventListener("change", async e => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      instrMsg.textContent = "Uploading…";
+      try {
+        const webp = await toWebp(file);
+        const path = `${paper.subject}/${paper.id}/instr-q${String(n).padStart(3, "0")}.webp`;
+        const { error } = await supabase.storage.from("reviews").upload(path, webp, { contentType: "image/webp", upsert: true });
+        if (error) throw error;
+        const { data } = supabase.storage.from("reviews").getPublicUrl(path);
+        const url = `${data.publicUrl}?v=${Date.now()}`;
+        await patch({ instruction_image_url: url });
+        paintInstrPreview(url);
+        instrMsg.textContent = "Saved.";
+      } catch (err) {
+        instrMsg.textContent = err.message ?? "Upload failed.";
+      }
+      setTimeout(() => instrMsg.textContent = "", 2000);
+    });
+    row.querySelector("[data-instr-remove]").addEventListener("click", async () => {
+      await patch({ instruction_image_url: null });
+      paintInstrPreview(null);
+    });
+
+    row.addEventListener("keydown", (e) => {
+      const k = e.key.toUpperCase();
+      if (document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "INPUT") return;
+      const advance = () => {
+        const next = document.getElementById(`row-${n+1}`);
+        if (next) { next.querySelector("[data-choice]").focus(); next.scrollIntoView({ block: "center", behavior: "smooth" }); }
+      };
+      if (CHOICES.includes(k)) { e.preventDefault(); setAnswers(new Set([k])); advance(); }
+      else if (k === "X") { e.preventDefault(); setAnswers(new Set(CHOICES)); advance(); }
+      else if (k === "0" || e.key === "Backspace") { e.preventDefault(); setAnswers(new Set()); advance(); }
+    });
+    row.querySelectorAll("[data-choice],[data-all],[data-none]").forEach(b => b.tabIndex = 0);
+  });
+}
+loadGrid();
+
+// A value in the map is an array of letters: [] means "no correct answer",
+// all five means "all of the above", one letter is the normal case.
+function parseKey(text) {
+  const map = new Map();
+  const pairs = [...text.matchAll(/(\d{1,3})\s*[\.\)\:\-\u2013=]?\s*([A-Ea-eXx]|0)(?![A-Za-z0-9])/g)];
+  if (pairs.length) {
+    pairs.forEach(m => {
+      const tok = m[2].toUpperCase();
+      map.set(Number(m[1]), tok === "X" ? [...CHOICES] : tok === "0" ? [] : [tok]);
+    });
+    return map;
+  }
+  const letters = text.toUpperCase().replace(/[^A-EX0]/g, "");
+  if (letters) { [...letters].forEach((c, i) => map.set(i + 1, c === "X" ? [...CHOICES] : c === "0" ? [] : [c])); return map; }
+  const digits = text.match(/[0-5]/g) ?? [];
+  digits.forEach((d, i) => map.set(i + 1, d === "0" ? [] : [CHOICES[Number(d) - 1]]));
+  return map;
+}
+
+document.getElementById("key-apply").addEventListener("click", async () => {
+  const msg = document.getElementById("key-msg");
+  const key = parseKey(document.getElementById("key-input").value);
+  if (!key.size) { msg.textContent = "Couldn't read any answers. Use letters A to E or digits 1 to 5."; return; }
+  const { data: qs2, error: qs2Error } = await supabase.from("questions").select("id,question_number").eq("paper_id", paper.id);
+  if (dbError(qs2Error, "loading questions")) { msg.textContent = "Could not save the key — try again."; return; }
+  const byNum = new Map((qs2 ?? []).map(q => [q.question_number, q.id]));
+  const todo = [...key.entries()].filter(([n]) => byNum.has(n));
+  const noImage = [...key.keys()].filter(n => !byNum.has(n)).length;
+  msg.textContent = `Saving ${todo.length}…`;
+  const failed = [];
+  await pool(todo, 6, async ([n, letters]) => {
+    const { error } = await supabase.from("questions").update({ correct_answers: letters }).eq("id", byNum.get(n));
+    if (error) failed.push(n);
+  });
+  msg.textContent = `Saved ${todo.length - failed.length} answers.` +
+    (failed.length ? ` ${failed.length} failed to save (question ${failed.join(", ")}) — try again.` : "") +
+    (noImage ? ` ${noImage} answer(s) had no matching question image yet, so they were skipped.` : "") +
+    (byNum.size > key.size ? ` ${byNum.size - key.size} question(s) had no answer in the key and were left as they were.` : "");
+  await loadGrid();
+});
+</script><script src="../../js/motion.js"></script>
+</body>
+</html>
