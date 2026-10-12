@@ -257,20 +257,20 @@ if (session) {
   document.getElementById("hero").innerHTML = `Hi, ${esc(firstName)}!<br>What are you sitting today?`;
 
   document.getElementById("tiles").innerHTML = [
-    ["past","Past papers","Every A/L paper, timed","#EFEDFD"],
-    ["topic","Topic papers","Drill one unit at a time","#E7F7EF"],
-    ["model","Model papers","Written for this year's syllabus","#FFF1E8"],
-    ["teacher","Teacher papers","Set by your own teachers","#EAF3FF"],
-    ["special","Special MCQs","Hand-picked practice questions","#FDEFF3"],
-  ].map(([type,title,note,tint]) => `
+    ["past","Past papers","Every A/L paper, timed"],
+    ["topic","Topic papers","Drill one unit at a time"],
+    ["model","Model papers","Written for this year's syllabus"],
+    ["teacher","Teacher papers","Set by your own teachers"],
+    ["special","Special MCQs","Hand-picked practice questions"],
+  ].map(([type,title,note]) => `
     <a href="subject.html?subject=physics&type=${type}" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between">
-      <div style="height:80px;border-radius:16px;background:${tint};display:grid;place-items:center;margin-bottom:24px">
+      <div style="height:80px;border-radius:16px;background:var(--tint-${type});display:grid;place-items:center;margin-bottom:24px">
         <span class="display" style="font-size:22px;color:var(--brand-text)">${title.split(" ")[0]}</span>
       </div>
       <div><p style="font-size:15px;font-weight:500">${title}</p><p class="muted" style="margin-top:4px;font-size:13px">${note}</p></div>
     </a>`).join("") + `
     <a href="subject.html" class="card card-pad" style="display:flex;flex-direction:column;justify-content:space-between;background:var(--brand-soft);border:none">
-      <div style="height:80px;border-radius:16px;background:#fff;display:grid;place-items:center;margin-bottom:24px">
+      <div style="height:80px;border-radius:16px;background:var(--tint-all);display:grid;place-items:center;margin-bottom:24px">
         <span class="display" style="font-size:22px;color:var(--brand-text)">All</span>
       </div>
       <div><p style="font-size:15px;font-weight:500;color:var(--brand-text)">Browse everything</p><p class="muted" style="margin-top:4px;font-size:13px">Search and filter every paper, both subjects</p></div>

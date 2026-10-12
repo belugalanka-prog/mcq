@@ -3,14 +3,16 @@
   --brand:#5a4be1; --brand-soft:#efedfd; --brand-deep:#221c4d;
   --ok:#2ed47a; --warn:#ff8a4c; --bad:#f0476c; --hairline:#eceaf4;
   /* text-safe versions (>= 4.5:1 on white / tinted backgrounds); --ok/--warn/--bad stay for fills & borders */
+  --tint-past:#EFEDFD; --tint-topic:#E7F7EF; --tint-model:#FFF1E8; --tint-teacher:#EAF3FF; --tint-special:#FDEFF3; --tint-all:#fff;
   --brand-text:#5a4be1; --ok-text:#0b7a43; --warn-text:#a14a0a; --bad-text:#c4204a;
   --shadow-card:0 8px 28px rgba(27,24,52,.06);
   color-scheme: light;
 }
 [data-theme="dark"]{
-  --canvas:#131128; --surface:#1c1936; --ink:#f4f3fa; --muted:#a09bc4;
-  --brand-soft:#2a2450; --brand-deep:#0f0d22; --hairline:#2b2750;
-  --shadow-card:0 8px 28px rgba(0,0,0,.35); color-scheme: dark;
+  --canvas:#0e0c1d; --surface:#1a1735; --ink:#f4f3fa; --muted:#aaa5cc;
+  --brand-soft:#2c2660; --brand-deep:#3a3180; --hairline:#363163;
+  --shadow-card:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.45); color-scheme: dark;
+  --tint-past:rgba(139,125,255,.18); --tint-topic:rgba(46,212,122,.15); --tint-model:rgba(255,138,76,.16); --tint-teacher:rgba(80,160,255,.16); --tint-special:rgba(240,71,108,.16); --tint-all:#262057;
   --brand-text:#a79dff; --ok-text:#4be08c; --warn-text:#ffa573; --bad-text:#ff7a9a;
 }
 *{box-sizing:border-box}
@@ -204,3 +206,15 @@ button,.pill,.option,.rail-item,.back-btn{touch-action:manipulation}
 .nf-card .muted{margin-top:10px;font-size:14px;line-height:1.6}
 .nf-cta{margin-top:24px;width:100%;justify-content:center}
 .nf-sub{font-size:13px!important}
+
+/* ---- Dark mode refinements ---- */
+[data-theme="dark"] .pill-deep:hover{background:#4a40a0}
+[data-theme="dark"] .pill-soft:hover{background:#38307a}
+[data-theme="dark"] .field{background:#12102a;border-color:var(--hairline);color:var(--ink)}
+[data-theme="dark"] .field::placeholder{color:#8d88b3}
+[data-theme="dark"] .cc{box-shadow:0 12px 40px rgba(0,0,0,.6)}
+[data-theme="dark"] .mm-backdrop{background:rgba(0,0,0,.65)}
+[data-theme="dark"] img.qimg{background:#fff;border-radius:12px}
+[data-theme="dark"] .site-footer{border-color:var(--hairline)}
+/* Don't show alt text as a visible caption when an avatar has no photo */
+img.avatar:not([src]),img.avatar[src=""],#avatar:not([src]),#avatar[src=""]{visibility:hidden}
