@@ -1,4 +1,0 @@
-# AdSense publisher ID for almcq.vercel.app
-# Without a matching ads.txt, most buyers will not bid on your inventory,
-# which quietly caps what you earn.
-google.com, pub-8054120040596132, DIRECT, f08c47fec0942fa0
