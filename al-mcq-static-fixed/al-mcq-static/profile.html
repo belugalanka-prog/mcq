@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/styles.css">
 <script src="config.js"></script>
 <script src="js/consent.js" defer></script>
@@ -40,7 +40,7 @@
     <div class="card card-pad">
       <div class="row" style="gap:14px">
         <img id="avatar" alt="Your profile photo" width="56" height="56" decoding="async" style="width:56px;height:56px;border-radius:999px;object-fit:cover;background:var(--brand-soft)">
-        <div><p id="name" style="font-size:18px;font-weight:600"></p><p class="muted" id="role" style="font-size:13px"></p></div>
+        <div><h1 id="name" style="font-size:18px;font-weight:600;font-family:inherit;letter-spacing:normal"></h1><p class="muted" id="role" style="font-size:13px"></p></div>
         <button id="edit-open" class="pill pill-ghost" style="margin-left:auto">Edit profile</button>
       </div>
       <div class="row" id="meta" style="margin-top:14px;gap:8px;flex-wrap:wrap"></div>

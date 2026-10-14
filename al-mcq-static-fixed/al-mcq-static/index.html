@@ -29,8 +29,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://quhtajfhcsuqfrwsxmbg.supabase.co" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"WebSite","@id":"https://almcq.vercel.app/#website","url":"https://almcq.vercel.app/","name":"A/L Master","description":"Timed A/L Physics and Chemistry MCQ practice papers for Sri Lankan students.","inLanguage":"en"},
+{"@type":"Organization","@id":"https://almcq.vercel.app/#org","name":"A/L Master","url":"https://almcq.vercel.app/","logo":{"@type":"ImageObject","url":"https://almcq.vercel.app/icon-512.png","width":512,"height":512}},
+{"@type":"WebApplication","@id":"https://almcq.vercel.app/#app","name":"A/L Master","url":"https://almcq.vercel.app/","applicationCategory":"EducationalApplication","operatingSystem":"Any","description":"Sit timed G.C.E. A/L Physics and Chemistry MCQ past, topic and model papers online with an instant topic breakdown, leaderboard and 1v1 duels.","audience":{"@type":"EducationalAudience","educationalRole":"student"},"publisher":{"@id":"https://almcq.vercel.app/#org"}},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Which subjects does A/L Master cover?","acceptedAnswer":{"@type":"Answer","text":"A/L Master covers G.C.E. Advanced Level Physics and Chemistry multiple-choice questions."}},
+{"@type":"Question","name":"What types of papers can I practise?","acceptedAnswer":{"@type":"Answer","text":"You can sit past papers, topic papers and model papers, or practise lesson by lesson."}},
+{"@type":"Question","name":"Do I need an account?","acceptedAnswer":{"@type":"Answer","text":"Yes. You sign in with Google so your attempts, results and topic breakdown are saved to your profile."}},
+{"@type":"Question","name":"What is a duel?","acceptedAnswer":{"@type":"Answer","text":"A duel is a live 1v1 MCQ challenge against a friend: same questions, same clock, highest score wins."}}
+]}]}
+</script>
 <script src="config.js"></script>
 <script src="js/consent.js" defer></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
@@ -39,7 +51,8 @@
   try{
     var seen=sessionStorage.getItem('introSeen');
     var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(seen||reduce) document.documentElement.classList.add('no-intro');
+    var bot=/bot|crawl|spider|lighthouse|pagespeed|headless/i.test(navigator.userAgent)||navigator.webdriver;
+    if(seen||reduce||bot) document.documentElement.classList.add('no-intro');
     else sessionStorage.setItem('introSeen','1');
   }catch(e){document.documentElement.classList.add('no-intro')}
 
@@ -50,7 +63,7 @@
   /* ---------- Intro splash ---------- */
   #intro{position:fixed;inset:0;z-index:100;display:grid;place-items:center;overflow:hidden;
     background:linear-gradient(160deg,#221c4d 0%,#3a2fa8 55%,#5a4be1 100%);color:#fff;
-    animation:curtain .75s cubic-bezier(.76,0,.24,1) 1.9s forwards}
+    animation:curtain .6s cubic-bezier(.76,0,.24,1) 1.4s forwards}
   .no-intro #intro{display:none}
   .intro-inner{text-align:center;position:relative;z-index:2}
   .intro-mark{width:92px;height:92px;margin:0 auto 22px;position:relative;display:grid;place-items:center;
@@ -74,7 +87,7 @@
 
   /* ---------- Page entrance (runs after the splash lifts) ---------- */
   .enter{opacity:0;transform:translateY(18px);animation:fadeUp .7s cubic-bezier(.2,.8,.3,1) forwards;
-    animation-delay:calc(var(--intro-end,2.35s) + var(--d,0s))}
+    animation-delay:calc(var(--intro-end,1.9s) + var(--d,0s))}
   .no-intro .enter{--intro-end:.05s}
   .enter.down{transform:translateY(-14px)}
   .card.enter{animation-name:cardIn}
@@ -115,7 +128,7 @@
 
     <div style="flex:1;display:flex;align-items:center;justify-content:center">
       <div class="card card-pad enter" style="--d:.1s;width:100%;max-width:400px;padding:36px 32px;text-align:center">
-        <h1 class="enter" style="--d:.25s;font-size:28px;line-height:1.15">Welcome back</h1>
+        <h2 class="enter" style="--d:.25s;font-size:28px;line-height:1.15">Welcome back</h2>
         <p class="muted enter" style="--d:.35s;margin-top:12px;font-size:14px">
           Sign in to sit A/L Physics and Chemistry papers, save your results and track your topics.
         </p>
@@ -128,6 +141,35 @@
         </p>
       </div>
     </div>
+
+    <main id="about" style="max-width:1080px;width:100%;margin:40px auto 0">
+      <h1 style="font-size:32px;line-height:1.2;max-width:760px">A/L Physics &amp; Chemistry MCQ practice papers for Sri Lankan students</h1>
+      <p style="margin-top:14px;max-width:760px;font-size:16px;line-height:1.6">A/L Master lets you sit timed G.C.E. Advanced Level Physics and Chemistry multiple-choice papers online, see an instant breakdown of the topics you are strong and weak in, and keep your results in one place.</p>
+
+      <h2 style="font-size:22px;margin-top:36px">What you can practise</h2>
+      <ul style="margin-top:12px;padding-left:20px;line-height:1.7;max-width:760px">
+        <li><b>Past papers</b> &mdash; Physics and Chemistry MCQ papers under real exam timing.</li>
+        <li><b>Topic papers</b> &mdash; focused sets, and lesson-by-lesson practice with instant marking.</li>
+        <li><b>Model papers</b> &mdash; extra full-length practice before the exam.</li>
+      </ul>
+
+      <h2 style="font-size:22px;margin-top:36px">Track progress and challenge friends</h2>
+      <ul style="margin-top:12px;padding-left:20px;line-height:1.7;max-width:760px">
+        <li><b>Topic breakdown</b> after every attempt, with a worked review of each question.</li>
+        <li><b>Leaderboard</b> &mdash; climb the weekly, monthly and all-time rankings.</li>
+        <li><b>1v1 duels</b> &mdash; same questions, same clock, highest score wins.</li>
+      </ul>
+
+      <h2 style="font-size:22px;margin-top:36px">Frequently asked questions</h2>
+      <h3 style="font-size:17px;margin-top:16px">Which subjects does A/L Master cover?</h3>
+      <p style="margin-top:6px;max-width:760px;line-height:1.6">G.C.E. Advanced Level Physics and Chemistry multiple-choice questions.</p>
+      <h3 style="font-size:17px;margin-top:16px">Do I need an account?</h3>
+      <p style="margin-top:6px;max-width:760px;line-height:1.6">Yes. You sign in with Google so your attempts, results and topic breakdown are saved to your profile.</p>
+      <h3 style="font-size:17px;margin-top:16px">What is a duel?</h3>
+      <p style="margin-top:6px;max-width:760px;line-height:1.6">A live 1v1 challenge against a friend: same questions, same clock, highest score wins.</p>
+
+      <p style="margin-top:28px;font-size:14px">Read our <a href="privacy.html" style="text-decoration:underline">Privacy Policy</a> and <a href="terms.html" style="text-decoration:underline">Terms &amp; Conditions</a>.</p>
+    </main>
     <div id="footer" style="max-width:1080px;width:100%;margin:0 auto"></div>
   </div>
 <script src="js/motion.js"></script>
