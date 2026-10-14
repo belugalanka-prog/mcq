@@ -103,6 +103,89 @@
   @media (prefers-reduced-motion:reduce){
     #intro{display:none}.enter{opacity:1;transform:none;animation:none}
   }
+
+  /* ---------- Landing page layout ---------- */
+  .lp{max-width:1080px;margin:0 auto;padding:20px 20px 40px;min-height:100vh}
+  .lp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 8px}
+  .lp .block{margin-top:72px}
+  .lp .block>h2{font-size:26px;line-height:1.2;margin-bottom:20px}
+  .lp .fine{font-size:12.5px;line-height:1.5}
+  .pill-lg{height:52px;padding:0 26px;font-size:15px}
+  .pill-invert{background:#fff;color:var(--brand-deep)}
+  .pill-invert:hover{background:var(--brand-soft)}
+
+  .hero{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center;padding-top:56px}
+  .hero h1{font-size:clamp(30px,4.6vw,46px);line-height:1.1;letter-spacing:-.03em}
+  .hero .lead{margin-top:18px;font-size:17px;line-height:1.65;color:var(--muted);max-width:46ch}
+  .cta-row{margin-top:30px}
+  .hero .fine{margin-top:14px}
+
+  .sample{padding:24px;position:relative}
+  .sample-q{font-size:15.5px;line-height:1.55;font-weight:500;margin-bottom:16px}
+  .sample-opts{display:grid;gap:10px}
+  .sample-opts .option{font-size:14px;line-height:1.4;padding:12px 14px;gap:12px}
+  .sample-opts .option:disabled{cursor:default}
+  .sample-opts .option.correct .option-key{background:var(--ok);border-color:var(--ok);color:#fff}
+  .sample-opts .option.wrong .option-key{background:var(--bad);border-color:var(--bad);color:#fff}
+  .sample-fb{margin-top:14px;padding:12px 14px;border-radius:14px;font-size:13.5px;line-height:1.55;color:var(--ink)}
+  .sample-fb.ok{background:rgba(46,212,122,.12)}
+  .sample-fb.ok b{color:var(--ok-text)}
+  .sample-fb.no{background:rgba(240,71,108,.09)}
+  .sample-fb.no b{color:var(--bad-text)}
+  .sample-fb[hidden]{display:none}
+
+  .types .type{padding:24px;background:var(--t)}
+  .type-ico{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--surface);color:var(--brand-text);margin-bottom:18px}
+  .type h3{font-size:18px}
+  .type p{margin-top:8px;font-size:14px;line-height:1.6}
+
+  .prog{grid-template-columns:1.4fr 1fr;align-items:stretch}
+  .prog h3{font-size:18px}
+  .prog .card p.muted{margin-top:8px;font-size:14px;line-height:1.6}
+  .breakdown{padding:28px;display:flex;flex-direction:column}
+  .bars{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:16px}
+  .bars li{display:grid;grid-template-columns:150px 1fr 44px;align-items:center;gap:14px;font-size:14px}
+  .bars .bar{height:8px}
+  .bars b{font-weight:600;text-align:right}
+  .breakdown .fine{margin-top:auto;padding-top:18px}
+  .side{display:grid;gap:16px;grid-template-rows:1fr 1fr}
+  .vs{display:flex;align-items:center;gap:10px;margin-top:16px}
+  .vs b{font:600 12px Poppins,sans-serif;color:var(--muted)}
+
+  .faq-card{padding:6px 24px}
+  .faq-card details{border-bottom:1px solid var(--hairline)}
+  .faq-card details:last-child{border-bottom:0}
+  .faq-card summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:18px 0;font-weight:500;font-size:15.5px;min-height:44px}
+  .faq-card summary::-webkit-details-marker{display:none}
+  .faq-card summary::after{content:"";flex:none;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
+    transform:rotate(45deg) translateY(-2px);transition:transform .2s ease}
+  .faq-card details[open] summary::after{transform:rotate(-135deg) translateY(-2px)}
+  .faq-card details p{padding:0 0 18px;max-width:62ch;font-size:14.5px;line-height:1.65}
+
+  .closing{margin-top:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+    padding:36px 40px;border-radius:28px;color:#fff;background:linear-gradient(160deg,#221c4d 0%,#3a2fa8 60%,#5a4be1 100%)}
+  .closing h2{font-size:24px}
+  .closing p{margin-top:6px;font-size:15px;color:#d9d5ff}
+  .legal-line{margin-top:28px;text-align:center}
+
+  #footer .site-footer{margin-top:32px}
+
+  @media(max-width:860px){
+    .hero{grid-template-columns:minmax(0,1fr);gap:36px;padding-top:28px}
+    .prog{grid-template-columns:minmax(0,1fr)}
+    .side{grid-template-rows:none}
+    .lp .block,.closing{margin-top:52px}
+  }
+  @media(max-width:520px){
+    .lp{padding:16px 16px 32px}
+    .pill-lg{width:100%;justify-content:center}
+    .bars li{grid-template-columns:1fr 40px;row-gap:6px}
+    .bars li .bar{grid-column:1/-1;grid-row:2}
+    .closing{padding:28px 22px}
+    .closing .pill{width:100%;justify-content:center}
+    .sample{padding:20px}
+  }
 </style>
 <script src="js/no-context-menu.js"></script>
 </head>
@@ -120,58 +203,131 @@
       <div class="intro-bar"><b></b></div>
     </div>
   </div>
-  <div style="min-height:100vh;display:flex;flex-direction:column;padding:24px 20px">
-    <div class="between enter down" style="max-width:1080px;width:100%;margin:0 auto">
-      <p class="display" style="font-size:17px">A/L Master</p>
+
+  <div class="lp">
+    <header class="lp-head enter down">
+      <a class="brand-link" href="index.html" aria-label="A/L Master home">
+        <span class="sf-mark">A/L</span><span class="display brand-name">A/L Master</span>
+      </a>
       <div class="theme-toggle" id="theme-toggle"></div>
-    </div>
+    </header>
 
-    <div style="flex:1;display:flex;align-items:center;justify-content:center">
-      <div class="card card-pad enter" style="--d:.1s;width:100%;max-width:400px;padding:36px 32px;text-align:center">
-        <h2 class="enter" style="--d:.25s;font-size:28px;line-height:1.15">Welcome back</h2>
-        <p class="muted enter" style="--d:.35s;margin-top:12px;font-size:14px">
-          Sign in to sit A/L Physics and Chemistry papers, save your results and track your topics.
-        </p>
-        <button id="signin" class="pill pill-brand enter" style="--d:.45s;margin-top:28px;width:100%;justify-content:center">
-          <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#fff" d="M21.6 12.2c0-.7-.1-1.3-.2-1.9H12v3.7h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3" opacity=".9"/><path fill="#fff" d="M12 22c2.7 0 4.9-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22" opacity=".75"/><path fill="#fff" d="M6.4 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z" opacity=".6"/><path fill="#fff" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.6l3.3 2.6C7.2 7.6 9.4 5.9 12 5.9"/></svg>
-          Continue with Google
-        </button>
-        <p class="muted enter" style="--d:.55s;margin-top:20px;font-size:12.5px">
-          By continuing you agree to our <a href="terms.html" style="text-decoration:underline">Terms</a> and <a href="privacy.html" style="text-decoration:underline">Privacy Policy</a>.
-        </p>
-      </div>
-    </div>
+    <main id="about">
+      <!-- Hero -->
+      <section class="hero">
+        <div class="hero-copy enter" style="--d:.1s">
+          <h1>A/L Physics &amp; Chemistry MCQ practice papers for Sri Lankan students</h1>
+          <p class="lead">Sit timed G.C.E. Advanced Level papers, see which topics you are strong and weak in, and keep every result in one place.</p>
+          <div class="cta-row">
+            <button id="signin" data-signin class="pill pill-brand pill-lg" type="button">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M21.6 12.2c0-.7-.1-1.3-.2-1.9H12v3.7h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3" opacity=".9"/><path fill="#fff" d="M12 22c2.7 0 4.9-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22" opacity=".75"/><path fill="#fff" d="M6.4 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z" opacity=".6"/><path fill="#fff" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.6l3.3 2.6C7.2 7.6 9.4 5.9 12 5.9"/></svg>
+              Continue with Google
+            </button>
+          </div>
+          <p class="fine muted">By continuing you agree to our <a class="link" href="terms.html">Terms</a> and <a class="link" href="privacy.html">Privacy Policy</a>.</p>
+        </div>
 
-    <main id="about" style="max-width:1080px;width:100%;margin:40px auto 0">
-      <h1 style="font-size:32px;line-height:1.2;max-width:760px">A/L Physics &amp; Chemistry MCQ practice papers for Sri Lankan students</h1>
-      <p style="margin-top:14px;max-width:760px;font-size:16px;line-height:1.6">A/L Master lets you sit timed G.C.E. Advanced Level Physics and Chemistry multiple-choice papers online, see an instant breakdown of the topics you are strong and weak in, and keep your results in one place.</p>
+        <!-- Interactive sample question -->
+        <div class="card sample enter" style="--d:.25s" aria-labelledby="sample-title">
+          <div class="card-head">
+            <h2 id="sample-title">Try a sample question</h2>
+            <span class="chip">Physics</span>
+          </div>
+          <p class="sample-q">A ball is thrown vertically upwards. At the highest point of its path, which statement is correct?</p>
+          <div class="sample-opts" role="group" aria-label="Answer options">
+            <button class="option" type="button" data-opt="A"><span class="option-key">A</span>Velocity and acceleration are both zero</button>
+            <button class="option" type="button" data-opt="B" data-correct="1"><span class="option-key">B</span>Velocity is zero; acceleration is g, downwards</button>
+            <button class="option" type="button" data-opt="C"><span class="option-key">C</span>Velocity is g; acceleration is zero</button>
+            <button class="option" type="button" data-opt="D"><span class="option-key">D</span>Velocity is zero; acceleration is g, upwards</button>
+          </div>
+          <div class="sample-fb" id="sample-fb" role="status" aria-live="polite" hidden></div>
+        </div>
+      </section>
 
-      <h2 style="font-size:22px;margin-top:36px">What you can practise</h2>
-      <ul style="margin-top:12px;padding-left:20px;line-height:1.7;max-width:760px">
-        <li><b>Past papers</b> &mdash; Physics and Chemistry MCQ papers under real exam timing.</li>
-        <li><b>Topic papers</b> &mdash; focused sets, and lesson-by-lesson practice with instant marking.</li>
-        <li><b>Model papers</b> &mdash; extra full-length practice before the exam.</li>
-      </ul>
+      <!-- Paper types -->
+      <section class="block">
+        <h2>What you can practise</h2>
+        <div class="grid g3 types">
+          <article class="card type" style="--t:var(--tint-past)">
+            <span class="type-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/></svg></span>
+            <h3>Past papers</h3>
+            <p class="muted">Physics and Chemistry MCQ papers under real exam timing.</p>
+          </article>
+          <article class="card type" style="--t:var(--tint-topic)">
+            <span class="type-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span>
+            <h3>Topic papers</h3>
+            <p class="muted">Focused sets, plus lesson-by-lesson practice with instant marking.</p>
+          </article>
+          <article class="card type" style="--t:var(--tint-model)">
+            <span class="type-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/></svg></span>
+            <h3>Model papers</h3>
+            <p class="muted">Extra full-length practice before the exam.</p>
+          </article>
+        </div>
+      </section>
 
-      <h2 style="font-size:22px;margin-top:36px">Track progress and challenge friends</h2>
-      <ul style="margin-top:12px;padding-left:20px;line-height:1.7;max-width:760px">
-        <li><b>Topic breakdown</b> after every attempt, with a worked review of each question.</li>
-        <li><b>Leaderboard</b> &mdash; climb the weekly, monthly and all-time rankings.</li>
-        <li><b>1v1 duels</b> &mdash; same questions, same clock, highest score wins.</li>
-      </ul>
+      <!-- Progress + duels -->
+      <section class="block">
+        <h2>Track progress and challenge friends</h2>
+        <div class="grid prog">
+          <article class="card card-pad breakdown">
+            <h3>Topic breakdown after every attempt</h3>
+            <p class="muted">See where marks are slipping, with a worked review of each question.</p>
+            <ul class="bars" aria-label="Example topic breakdown">
+              <li><span>Mechanics</span><div class="bar"><span style="width:82%;background:var(--ok)"></span></div><b class="num">82%</b></li>
+              <li><span>Thermal physics</span><div class="bar"><span style="width:64%;background:var(--warn)"></span></div><b class="num">64%</b></li>
+              <li><span>Organic chemistry</span><div class="bar"><span style="width:41%;background:var(--bad)"></span></div><b class="num">41%</b></li>
+            </ul>
+            <p class="fine muted">Example only.</p>
+          </article>
+          <div class="side">
+            <article class="card card-pad">
+              <h3>Leaderboard</h3>
+              <p class="muted">Climb the weekly, monthly and all-time rankings.</p>
+            </article>
+            <article class="card card-pad duel">
+              <h3>1v1 duels</h3>
+              <p class="muted">Same questions, same clock, highest score wins.</p>
+              <div class="vs" aria-hidden="true"><span class="chip">You</span><b>vs</b><span class="chip">Friend</span></div>
+            </article>
+          </div>
+        </div>
+      </section>
 
-      <h2 style="font-size:22px;margin-top:36px">Frequently asked questions</h2>
-      <h3 style="font-size:17px;margin-top:16px">Which subjects does A/L Master cover?</h3>
-      <p style="margin-top:6px;max-width:760px;line-height:1.6">G.C.E. Advanced Level Physics and Chemistry multiple-choice questions.</p>
-      <h3 style="font-size:17px;margin-top:16px">Do I need an account?</h3>
-      <p style="margin-top:6px;max-width:760px;line-height:1.6">Yes. You sign in with Google so your attempts, results and topic breakdown are saved to your profile.</p>
-      <h3 style="font-size:17px;margin-top:16px">What is a duel?</h3>
-      <p style="margin-top:6px;max-width:760px;line-height:1.6">A live 1v1 challenge against a friend: same questions, same clock, highest score wins.</p>
+      <!-- FAQ -->
+      <section class="block faq">
+        <h2>Frequently asked questions</h2>
+        <div class="card faq-card">
+          <details>
+            <summary>Which subjects does A/L Master cover?</summary>
+            <p class="muted">G.C.E. Advanced Level Physics and Chemistry multiple-choice questions.</p>
+          </details>
+          <details>
+            <summary>Do I need an account?</summary>
+            <p class="muted">Yes. You sign in with Google so your attempts, results and topic breakdown are saved to your profile.</p>
+          </details>
+          <details>
+            <summary>What is a duel?</summary>
+            <p class="muted">A live 1v1 challenge against a friend: same questions, same clock, highest score wins.</p>
+          </details>
+        </div>
+      </section>
 
-      <p style="margin-top:28px;font-size:14px">Read our <a href="privacy.html" style="text-decoration:underline">Privacy Policy</a> and <a href="terms.html" style="text-decoration:underline">Terms &amp; Conditions</a>.</p>
+      <!-- Closing CTA -->
+      <section class="closing">
+        <div>
+          <h2>Start with your first paper</h2>
+          <p>Sign in once and your results follow you.</p>
+        </div>
+        <button data-signin class="pill pill-lg pill-invert" type="button">Continue with Google</button>
+      </section>
+
+      <p class="fine muted legal-line">Read our <a class="link" href="privacy.html">Privacy Policy</a> and <a class="link" href="terms.html">Terms &amp; Conditions</a>.</p>
     </main>
-    <div id="footer" style="max-width:1080px;width:100%;margin:0 auto"></div>
+
+    <div id="footer"></div>
   </div>
+
 <script src="js/motion.js"></script>
 <script type="module">
 import { getSession, signInWithGoogle } from "./js/auth.js";
@@ -183,7 +339,28 @@ document.getElementById("theme-toggle").innerHTML = `
   <button data-theme-btn="dark">Dark</button>`;
 mountThemeToggle();
 
-document.getElementById("signin").addEventListener("click", signInWithGoogle);
+document.querySelectorAll("[data-signin]").forEach((b) => b.addEventListener("click", signInWithGoogle));
+
+// Sample question: tap an answer to see how marking feels.
+(() => {
+  const opts = [...document.querySelectorAll(".sample-opts .option")];
+  const fb = document.getElementById("sample-fb");
+  let done = false;
+  opts.forEach((o) => o.addEventListener("click", () => {
+    if (done) return;
+    done = true;
+    const ok = o.hasAttribute("data-correct");
+    opts.forEach((x) => {
+      x.disabled = true;
+      if (x.hasAttribute("data-correct")) x.classList.add("correct");
+    });
+    if (!ok) o.classList.add("wrong");
+    fb.hidden = false;
+    fb.className = "sample-fb " + (ok ? "ok" : "no");
+    fb.innerHTML = (ok ? "<b>Correct.</b> " : "<b>Not quite.</b> ") +
+      "At the top the ball is momentarily at rest, but gravity still acts, so acceleration stays g downwards.";
+  }));
+})();
 
 // Skip the intro: lift the curtain now and pull the page entrance forward.
 document.getElementById("intro-skip")?.addEventListener("click", () => {
@@ -198,7 +375,6 @@ document.getElementById("intro")?.addEventListener("animationend", (e) => {
 
 // Already signed in? Skip straight to the dashboard.
 getSession().then((s) => { if (s) location.href = "dashboard.html"; });
-
 </script>
 </body>
 </html>
