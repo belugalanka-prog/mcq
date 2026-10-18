@@ -225,11 +225,11 @@ import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { clock, esc, titleCase } from "./js/format.js";
 import { dbError, toast } from "./js/db.js";
-import { mountSiteStats } from "./js/site-stats.js";
 
 mountRail();
 mountFooter(document.getElementById("footer"));
-mountSiteStats(document.getElementById("stats"));
+// Counters are optional: if this file is missing or fails, the rest of the page still works.
+import("./js/site-stats.js").then((m) => m.mountSiteStats(document.getElementById("stats"))).catch(() => document.getElementById("stats")?.remove());
 
 // Join a friend's duel straight from the dashboard.
 {
