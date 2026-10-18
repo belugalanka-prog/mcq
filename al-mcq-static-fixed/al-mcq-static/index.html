@@ -286,9 +286,9 @@
 <script type="module">
 import { getSession, signInWithGoogle } from "./js/auth.js";
 import { mountThemeToggle, mountFooter } from "./js/shell.js";
-import { mountSiteStats } from "./js/site-stats.js";
 mountFooter(document.getElementById("footer"));
-mountSiteStats(document.getElementById("stats"));
+// Counters are optional: if this file is missing or fails, the rest of the page still works.
+import("./js/site-stats.js").then((m) => m.mountSiteStats(document.getElementById("stats"))).catch(() => document.getElementById("stats")?.remove());
 
 document.getElementById("theme-toggle").innerHTML = `
   <button data-theme-btn="light">Light</button>
