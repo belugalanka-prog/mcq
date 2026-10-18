@@ -80,7 +80,7 @@ const MENU_LEGAL = [
 ];
 
 function brandLink(home, extra = "") {
-  return `<a href="${home}" class="brand-link ${extra}" aria-label="A/L Master — home"><span class="sf-mark">A/L</span><span class="brand-name display">A/L Master</span></a>`;
+  return `<a href="${home}" class="brand-link ${extra}" aria-label="A/L Master — home"><span class="sf-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="brand-name display">A/L Master</span></a>`;
 }
 
 function mountMobileMenu(btn, home) {
