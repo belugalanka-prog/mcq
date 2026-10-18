@@ -118,15 +118,6 @@
   .cta-row{margin-top:30px}
   .hero .fine{margin-top:14px}
 
-  .stats{display:flex;justify-content:center;margin-top:44px;opacity:0;transform:translateY(6px);
-    transition:opacity .5s ease,transform .5s ease}
-  .stats.on{opacity:1;transform:none}
-  .stat{padding:0 38px;text-align:center}
-  .stat+.stat{border-left:1px solid var(--hairline)}
-  .stat-num{display:block;font:600 clamp(28px,4.4vw,38px)/1.1 Poppins,sans-serif;letter-spacing:-.02em;
-    font-variant-numeric:tabular-nums;color:var(--ink)}
-  .stat span{display:block;margin-top:6px;font-size:13.5px;color:var(--muted)}
-
   .types .type{padding:24px;background:var(--t)}
   .type-ico{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--surface);color:var(--brand-text);margin-bottom:18px}
   .type h3{font-size:18px}
@@ -166,7 +157,6 @@
     .lp .block{margin-top:52px}
   }
   @media(max-width:520px){
-    .stat{padding:0 22px}
     .lp{padding:16px 16px 32px}
     .pill-lg{width:100%;justify-content:center}
     .bars li{grid-template-columns:1fr 40px;row-gap:6px}
@@ -212,8 +202,8 @@
           </div>
           <p class="fine muted">By continuing you agree to our <a class="link" href="terms.html">Terms</a> and <a class="link" href="privacy.html">Privacy Policy</a>.</p>
         <div class="stats" id="stats" role="group" aria-label="Site totals">
-          <div class="stat"><b class="stat-num" id="stat-users">0</b><span>Active students</span></div>
-          <div class="stat"><b class="stat-num" id="stat-papers">0</b><span>Active papers</span></div>
+          <div class="stat"><b class="stat-num" data-k="users">0</b><span>Active students</span></div>
+          <div class="stat"><b class="stat-num" data-k="papers">0</b><span>Active papers</span></div>
         </div>
         </div>
       </section>
@@ -296,8 +286,9 @@
 <script type="module">
 import { getSession, signInWithGoogle } from "./js/auth.js";
 import { mountThemeToggle, mountFooter } from "./js/shell.js";
-import { supabase } from "./js/supabase.js";
+import { mountSiteStats } from "./js/site-stats.js";
 mountFooter(document.getElementById("footer"));
+mountSiteStats(document.getElementById("stats"));
 
 document.getElementById("theme-toggle").innerHTML = `
   <button data-theme-btn="light">Light</button>
@@ -305,53 +296,6 @@ document.getElementById("theme-toggle").innerHTML = `
 mountThemeToggle();
 
 document.querySelectorAll("[data-signin]").forEach((b) => b.addEventListener("click", signInWithGoogle));
-
-// Live site totals: counts straight from the database, refreshed every 10s while the tab is visible.
-(() => {
-  const box = document.getElementById("stats");
-  const targets = { users: document.getElementById("stat-users"), papers: document.getElementById("stat-papers") };
-  const shown = { users: 0, papers: 0 };
-  const frames = {};
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const fmt = (n) => Math.round(n).toLocaleString("en-US");
-
-  function countTo(key, to, ms) {
-    const el = targets[key], from = shown[key];
-    cancelAnimationFrame(frames[key]);
-    shown[key] = to;
-    if (reduce || from === to) { el.textContent = fmt(to); return; }
-    const t0 = performance.now();
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / ms);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmt(from + (to - from) * eased);
-      if (p < 1) frames[key] = requestAnimationFrame(step);
-    };
-    frames[key] = requestAnimationFrame(step);
-  }
-
-  // Hold the first count-up until the intro curtain has gone.
-  const introGone = () => new Promise((res) => {
-    const t0 = Date.now();
-    const tick = () => (!document.getElementById("intro") || Date.now() - t0 > 5000) ? res() : setTimeout(tick, 120);
-    tick();
-  });
-
-  let first = true;
-  async function load() {
-    const { data, error } = await supabase.rpc("get_site_stats");
-    if (error || !data) { if (first) box.remove(); return; }
-    if (first) { await introGone(); box.classList.add("on"); }
-    const ms = first ? 1600 : 900;
-    first = false;
-    countTo("users", Number(data.users) || 0, ms);
-    countTo("papers", Number(data.papers) || 0, ms);
-  }
-
-  load();
-  setInterval(() => { if (!document.hidden && !first) load(); }, 10000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && !first) load(); });
-})();
 
 // Skip the intro: lift the curtain now and pull the page entrance forward.
 document.getElementById("intro-skip")?.addEventListener("click", () => {
