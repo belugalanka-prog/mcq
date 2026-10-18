@@ -110,6 +110,10 @@
       <p class="muted" style="margin-top:16px;max-width:38ch;font-size:14px">
         Pick a paper, answer under real time pressure, and get the topic breakdown the moment you submit.
       </p>
+      <div class="stats stats-left" id="stats" role="group" aria-label="Site totals">
+        <div class="stat"><b class="stat-num" data-k="users">0</b><span>Active students</span></div>
+        <div class="stat"><b class="stat-num" data-k="papers">0</b><span>Active papers</span></div>
+      </div>
     </div>
     <div class="grid g3" id="tiles"></div>
   </div>
@@ -221,9 +225,11 @@ import { supabase } from "./js/supabase.js";
 import { mountRail, mountTopbar, mountAdSlot, mountFooter } from "./js/shell.js";
 import { clock, esc, titleCase } from "./js/format.js";
 import { dbError, toast } from "./js/db.js";
+import { mountSiteStats } from "./js/site-stats.js";
 
 mountRail();
 mountFooter(document.getElementById("footer"));
+mountSiteStats(document.getElementById("stats"));
 
 // Join a friend's duel straight from the dashboard.
 {
